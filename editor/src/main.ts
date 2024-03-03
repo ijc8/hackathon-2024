@@ -171,9 +171,13 @@ function generateBlocks(ret: Result): Block[] {
     return blocks
 }
 
+// Drag to reorder: state
 const tmpEl = document.createElement("span")
 tmpEl.id = "tmp"
 tmpEl.textContent = "TEMP"
+
+let source: Block | null = null
+let destination: Block | null = null
 
 function renderBlocks(blocks: Block[]) {
     transcriptEl.innerHTML = ""
@@ -182,9 +186,25 @@ function renderBlocks(blocks: Block[]) {
         el.appendChild(document.createTextNode(block.text))
         el.className = "block"
         el.draggable = true
+        el.addEventListener("dragstart", e => {
+            el.style.display = "none"
+            tmpEl.style.display = "inline"
+            tmpEl.textContent = el.textContent
+            el.parentElement!.insertBefore(tmpEl, el)
+            source = block
+            destination = block
+        })
+        el.addEventListener("dragend", e => {
+            tmpEl.style.display = "none"
+            blocks.splice(blocks.indexOf(destination!), 0, source!)
+            blocks.splice(blocks.indexOf(source!), 1)
+            renderBlocks(blocks)
+        })
         el.addEventListener("dragenter", e => {
             el.classList.add("dragover")
+            // TODO: determine whether to insert before/after based on direction of motion or maybe previous insertion point.
             el.parentElement!.insertBefore(tmpEl, el)
+            destination = block
         })
         el.addEventListener("dragleave", e => {
             el.classList.remove("dragover")
