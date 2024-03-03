@@ -1,25 +1,23 @@
-var $a = document.getElementById("audio");
+const video = document.querySelector("video") as HTMLVideoElement;
 window.onkeydown = function(ev) {
     if(ev.keyCode == 32) {
         ev.preventDefault();
-        $a.pause();
+        video.pause();
     }
 }
 
-var $trans = document.getElementById("transcript");
-var $preloader = document.getElementById('preloader');
+const $trans = document.getElementById("transcript") as HTMLDivElement;
 
-var wds = [];
-var cur_wd;
+var cur_wd: Block;
 
 var $phones = document.createElement("div");
 $phones.className = "phones";
 document.body.appendChild($phones);
 
-var cur_phones$ = [];           // List of phoneme $divs
-var $active_phone;
+var cur_phones$: HTMLSpanElement[] = [];           // List of phoneme $divs
+var $active_phone: HTMLSpanElement | null;
 
-function render_phones(wd) {
+function render_phones(wd: Word) {
     cur_phones$ = [];
     $phones.innerHTML = "";
     $active_phone = null;
@@ -31,34 +29,33 @@ function render_phones(wd) {
     
     var start_x = wd.$div.offsetLeft;
     
-    wd.phones
-    .forEach(function(ph){
+    for (const ph of wd.phones) {
         var $p = document.createElement("span");
         $p.className = "phone";
         $p.textContent = ph.phone.split("_")[0];
         
         $phones.appendChild($p);
         cur_phones$.push($p);
-    });
+    }
     
     var offsetToCenter = (wd.$div.offsetWidth - $phones.offsetWidth) / 2;
     $phones.style.left = wd.$div.offsetLeft + offsetToCenter;
 }
-function highlight_phone(cur_wd, t) {
-    if(!cur_wd || !cur_wd.word) {
+function highlight_phone(block: Block, t: number) {
+    if(!block || !block.word) {
         $phones.innerHTML = "";
         return;
     }
-    cur_wd = cur_wd.word
+    const cur_wd = block.word
     var hit;
     var cur_t = cur_wd.start;
     
-    cur_wd.phones.forEach(function(ph, idx) {
+    for (const [ph, idx] of cur_wd.phones.entries()) {
         if(cur_t <= t && cur_t + ph.duration >= t) {
             hit = idx;
         }
         cur_t += ph.duration;
-    });
+    }
     
     if(hit) {
         var $ph = cur_phones$[hit];
@@ -75,7 +72,7 @@ function highlight_phone(cur_wd, t) {
 }
 
 function highlight_word() {
-    var t = $a.currentTime;
+    var t = video.currentTime;
     // XXX: O(N); use binary search
     var hits = blocks.filter(function(x) {
         return (t - x.start) > 0.01 && (x.end - t) > 0.01;
@@ -104,18 +101,28 @@ window.requestAnimationFrame(highlight_word);
 
 $trans.innerHTML = "Loading...";
 
-let blocks = []
+type Word = any
 
-function render(ret) {
-    wds = ret['words'] || [];
-    transcript = ret['transcript'];
+interface Block {
+    text: string
+    start: number
+    end: number
+    el: HTMLSpanElement
+    word?: Word
+}
+
+let blocks: Block[] = []
+
+function render(ret: any) {
+    const wds = ret['words'] || [];
+    const transcript: string = ret['transcript'];
     
     $trans.innerHTML = '';
     
     var currentOffset = 0;
     let currentTime = 0
     
-    const addUnlinked = (nextOffset, nextTime) => {
+    const addUnlinked = (nextOffset: number, nextTime: number) => {
         var txt = transcript.slice(currentOffset, nextOffset);
         let space = document.createElement("span")
         space.className = "space"
@@ -123,8 +130,8 @@ function render(ret) {
         space.appendChild($plaintext)
         let spaceStart = currentTime
         space.onclick = () => {
-            $a.currentTime = spaceStart
-            $a.play()
+            video.currentTime = spaceStart
+            video.play()
         };
         $trans.appendChild(space);
         currentOffset = nextOffset;
@@ -156,8 +163,8 @@ function render(ret) {
         $wd.onclick = function() {
             if(wd.start !== undefined) {
                 console.log(wd.start);
-                $a.currentTime = wd.start;
-                $a.play();
+                video.currentTime = wd.start;
+                video.play();
             }
         };
         $trans.appendChild($wd);
@@ -166,7 +173,7 @@ function render(ret) {
         blocks.push({ text: txt, start: wd.start, end: wd.end, el: $wd, word: wd })
     }
     
-    addUnlinked(transcript.length, $a.duration)
+    addUnlinked(transcript.length, video.duration)
     console.log(blocks)
 }
 
@@ -174,44 +181,44 @@ var status_init = false;
 var status_log  = [];		// [ status ]
 var $status_pro;
 
-function render_status(ret) {
-    if(!status_init) {
-        // Clobber the $trans div and use it for status updates
-        $trans.innerHTML = "<h2>transcription in progress</h2>";
-        $trans.className = "status";
-        $status_pro = document.createElement("progress");
-        $status_pro.setAttribute("min", "0");
-        $status_pro.setAttribute("max", "100");
-        $status_pro.value = 0;
-        $trans.appendChild($status_pro);
+// function render_status(ret) {
+//     if(!status_init) {
+//         // Clobber the $trans div and use it for status updates
+//         $trans.innerHTML = "<h2>transcription in progress</h2>";
+//         $trans.className = "status";
+//         $status_pro = document.createElement("progress");
+//         $status_pro.setAttribute("min", "0");
+//         $status_pro.setAttribute("max", "100");
+//         $status_pro.value = 0;
+//         $trans.appendChild($status_pro);
         
-        status_init = true;
-    }
-    if(ret.status !== "TRANSCRIBING") {
-        if(ret.percent) {
-            $status_pro.value = (100*ret.percent);
-        }
-    }
-    else if(ret.percent && (status_log.length == 0 || status_log[status_log.length-1].percent+0.0001 < ret.percent)) {
-        // New entry
-        var $entry = document.createElement("div");
-        $entry.className = "entry";
-        $entry.textContent = ret.message;
-        ret.$div = $entry;
+//         status_init = true;
+//     }
+//     if(ret.status !== "TRANSCRIBING") {
+//         if(ret.percent) {
+//             $status_pro.value = (100*ret.percent);
+//         }
+//     }
+//     else if(ret.percent && (status_log.length == 0 || status_log[status_log.length-1].percent+0.0001 < ret.percent)) {
+//         // New entry
+//         var $entry = document.createElement("div");
+//         $entry.className = "entry";
+//         $entry.textContent = ret.message;
+//         ret.$div = $entry;
         
-        if(ret.percent) {
-            $status_pro.value = (100*ret.percent);
-        }
+//         if(ret.percent) {
+//             $status_pro.value = (100*ret.percent);
+//         }
         
-        if(status_log.length > 0) {
-            $trans.insertBefore($entry, status_log[status_log.length-1].$div);
-        }
-        else {
-            $trans.appendChild($entry);
-        }
-        status_log.push(ret);
-    }
-}
+//         if(status_log.length > 0) {
+//             $trans.insertBefore($entry, status_log[status_log.length-1].$div);
+//         }
+//         else {
+//             $trans.appendChild($entry);
+//         }
+//         status_log.push(ret);
+//     }
+// }
 
 function update() {
     if(INLINE_JSON) {
@@ -682,12 +689,12 @@ var INLINE_JSON={
 };
 
 // Wait until we have video length.
-if ($a.duration) {
+if (video.duration) {
     update()
 } else {
     const onLoadedMetadata = () => {
-        $a.removeEventListener("loadedmetadata, onLoad")
+        video.removeEventListener("loadedmetadata", onLoadedMetadata)
         update()
     }
-    $a.addEventListener("loadedmetadata", onLoadedMetadata)
+    video.addEventListener("loadedmetadata", onLoadedMetadata)
 }
