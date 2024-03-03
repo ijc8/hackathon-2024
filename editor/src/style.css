@@ -25,10 +25,10 @@ text-decoration: none;
 .home:hover a {
 background: #555;
 }
-#audio {
+video {
   margin-top: 9px;
-  width: 50%;
-  display: inline-block;
+  max-width: 100%;
+  display: block;
 }
 #transcript {
   margin: 0 15px;
@@ -38,6 +38,8 @@ background: #555;
   line-height: 2em;
   max-width: 600px;
   color: #999;
+  user-select: none;
+  font-size: larger;
 }
 #transcript.status {
   background-color: #333;
