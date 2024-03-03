@@ -79,7 +79,10 @@ function highlight_word() {
     })
     var nextBlock = hits[hits.length - 1]
     
-    if(currentBlock != nextBlock) {
+    if (nextBlock && currentBlock != nextBlock) {
+        console.log(currentBlock, nextBlock)
+        nextBlock = blocks[(blocks.indexOf(currentBlock) + 1) % blocks.length]
+        setTimeout(() => video.currentTime = nextBlock.start, currentBlock.end - t)
         for (const el of document.querySelectorAll(".active")) {
             el.classList.remove("active")
         }
@@ -89,8 +92,8 @@ function highlight_word() {
         if(nextBlock?.word && nextBlock?.el) {
             render_phones(nextBlock)
         }
+        currentBlock = nextBlock
     }
-    currentBlock = nextBlock
     highlight_phone(currentBlock, t)
     
     window.requestAnimationFrame(highlight_word)
@@ -172,10 +175,13 @@ function renderBlocks(blocks: Block[]) {
         const el = document.createElement('span') 
         el.appendChild(document.createTextNode(block.text))
         el.className = "block"
-        el.onclick = () => {
+        // el.onclick = () => {
+        el.ontouchstart = () => {
             console.log(block.start)
             video.currentTime = block.start
-            video.play()
+            // Imprecise and not supported in Chrome:
+            // video.fastSeek(block.start)
+            // video.play()
         }
         transcriptEl.appendChild(el)
         block.el = el
@@ -252,6 +258,7 @@ function update() {
         // We want this to work from file:/// domains, so we provide a
         // mechanism for inlining the alignment data.
         blocks = generateBlocks(INLINE_JSON)
+        currentBlock = blocks[0]
         renderBlocks(blocks)
     }
     else  {

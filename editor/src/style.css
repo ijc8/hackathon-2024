@@ -81,6 +81,7 @@ video {
 .phones {
   position: absolute;
   color: #333;
+  pointer-events: none;
 }
 .phones .phone {
   margin-right: 5px;
