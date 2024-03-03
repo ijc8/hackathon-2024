@@ -73,6 +73,7 @@ html, body {
     text-decoration: underline;
 }
 .active {
+    background-color: cyan;
     color: magenta;
 }
 #preloader {
@@ -170,11 +171,12 @@ function render_phones(wd) {
     var offsetToCenter = (wd.$div.offsetWidth - $phones.offsetWidth) / 2;
     $phones.style.left = wd.$div.offsetLeft + offsetToCenter;
 }
-function highlight_phone(t) {
-    if(!cur_wd) {
+function highlight_phone(cur_wd, t) {
+    if(!cur_wd || !cur_wd.word) {
         $phones.innerHTML = "";
         return;
     }
+    cur_wd = cur_wd.word
     var hit;
     var cur_t = cur_wd.start;
     
@@ -202,29 +204,34 @@ function highlight_phone(t) {
 function highlight_word() {
     var t = $a.currentTime;
     // XXX: O(N); use binary search
-    var hits = wds.filter(function(x) {
+    var hits = blocks.filter(function(x) {
         return (t - x.start) > 0.01 && (x.end - t) > 0.01;
-    }, wds);
+    });
     var next_wd = hits[hits.length - 1];
 
     if(cur_wd != next_wd) {
+        console.log(next_wd?.text, next_wd)
         var active = document.querySelectorAll('.active');
         for(var i = 0; i < active.length; i++) {
             active[i].classList.remove('active');
         }
-        if(next_wd && next_wd.$div) {
-            next_wd.$div.classList.add('active');
-            render_phones(next_wd);
+        if (next_wd?.el) {
+            next_wd.el.classList.add('active');
+        }
+        if(next_wd?.word?.$div) {
+            render_phones(next_wd.word);
         }
     }
     cur_wd = next_wd;
-    highlight_phone(t);
+    highlight_phone(cur_wd, t)
 
     window.requestAnimationFrame(highlight_word);
 }
 window.requestAnimationFrame(highlight_word);
 
 $trans.innerHTML = "Loading...";
+
+let blocks = []
 
 function render(ret) {
     wds = ret['words'] || [];
@@ -234,6 +241,22 @@ function render(ret) {
 
     var currentOffset = 0;
     let currentTime = 0
+
+    const addUnlinked = (nextOffset, nextTime) => {
+        var txt = transcript.slice(currentOffset, nextOffset);
+        let space = document.createElement("span")
+        space.className = "space"
+        var $plaintext = document.createTextNode(txt);
+        space.appendChild($plaintext)
+        let spaceStart = currentTime
+        space.onclick = () => {
+            $a.currentTime = spaceStart
+            $a.play()
+        };
+        $trans.appendChild(space);
+        currentOffset = nextOffset;
+        blocks.push({ text: txt, start: currentTime, end: nextTime, el: space })
+    }
 
     for (const wd of wds) {
         if (wd.case == 'not-found-in-transcript') {
@@ -246,18 +269,7 @@ function render(ret) {
 
         // Add non-linked text
         if (wd.startOffset > currentOffset) {
-            var txt = transcript.slice(currentOffset, wd.startOffset);
-            let space = document.createElement("span")
-            space.className = "space"
-            var $plaintext = document.createTextNode(txt);
-            space.appendChild($plaintext)
-            let spaceStart = currentTime
-            space.onclick = () => {
-                $a.currentTime = spaceStart
-                $a.play()
-            };
-            $trans.appendChild(space);
-            currentOffset = wd.startOffset;
+            addUnlinked(wd.startOffset, wd.start)
         }
 
         var $wd = document.createElement('span');
@@ -278,12 +290,11 @@ function render(ret) {
         $trans.appendChild($wd);
         currentOffset = wd.endOffset;
         currentTime = wd.end
+        blocks.push({ text: txt, start: wd.start, end: wd.end, el: $wd, word: wd })
     }
 
-    var txt = transcript.slice(currentOffset, transcript.length);
-    var $plaintext = document.createTextNode(txt);
-    $trans.appendChild($plaintext);
-    currentOffset = transcript.length;
+    addUnlinked(transcript.length, $a.duration)
+    console.log(blocks)
 }
 
 var status_init = false;
@@ -797,6 +808,7 @@ var INLINE_JSON={
   ]
 };
 
-update();
+// Wait until we have video length.
+$a.addEventListener("loadedmetadata", () => update())
 
 </script></body></html>
