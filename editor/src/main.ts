@@ -18,6 +18,7 @@ var cur_phones$: HTMLSpanElement[] = []  // Phoneme elements
 var $active_phone: HTMLSpanElement | null
 
 function render_phones(block: Block) {
+    if (!block.el) { console.assert("nope"); return }
     cur_phones$ = []
     phones.innerHTML = ""
     $active_phone = null
@@ -27,7 +28,7 @@ function render_phones(block: Block) {
     
     // var dur = block.end - block.start
     // var start_x = block.el.offsetLeft
-    
+
     for (const ph of block.word!.phones) {
         var $p = document.createElement("span")
         $p.className = "phone"
@@ -123,74 +124,85 @@ interface Block {
     text: string
     start: number
     end: number
-    el: HTMLSpanElement
+    el?: HTMLSpanElement
     word?: Word
 }
 
 let blocks: Block[] = []
 
-function render(ret: any) {
-    const wds = ret['words'] || []
-    const transcript: string = ret['transcript']
-    
-    transcriptEl.innerHTML = ''
-    
-    var currentOffset = 0
+function generateBlocks(ret: Result): Block[] {
+    const blocks = []
+    const wds = ret.words
+    const transcript = ret.transcript
+
+    let currentOffset = 0
     let currentTime = 0
     
-    const addUnlinked = (nextOffset: number, nextTime: number) => {
-        var txt = transcript.slice(currentOffset, nextOffset)
-        let space = document.createElement("span")
-        space.className = "space"
-        var $plaintext = document.createTextNode(txt)
-        space.appendChild($plaintext)
-        let spaceStart = currentTime
-        space.onclick = () => {
-            video.currentTime = spaceStart
-            video.play()
-        }
-        transcriptEl.appendChild(space)
-        currentOffset = nextOffset
-        blocks.push({ text: txt, start: currentTime, end: nextTime, el: space })
-    }
-    
     for (const wd of wds) {
-        if (wd.case == 'not-found-in-transcript') {
-            // TODO: show phonemes somewhere
-            var txt = ' ' + wd.word
-            var $plaintext = document.createTextNode(txt)
-            transcriptEl.appendChild($plaintext)
-            continue
+        if (wd.case == "not-found-in-transcript") {
+            // TODO: does this case actually happen? what should we do with this?
+            // var txt = ' ' + wd.word
+            // var $plaintext = document.createTextNode(txt)
+            // transcriptEl.appendChild($plaintext)
+            // continue
         }
-        
+
         // Add non-linked text
         if (wd.startOffset > currentOffset) {
-            addUnlinked(wd.startOffset, wd.start)
+            const text = transcript.slice(currentOffset, wd.startOffset)
+            currentOffset = wd.startOffset
+            blocks.push({ text, start: currentTime, end: wd.start })
         }
-        
-        var $wd = document.createElement('span')
-        var txt = transcript.slice(wd.startOffset, wd.endOffset)
-        var $wdText = document.createTextNode(txt)
-        $wd.appendChild($wdText)
-        if (wd.start !== undefined) {
-            $wd.className = 'success'
-        }
-        $wd.onclick = function() {
-            if(wd.start !== undefined) {
-                console.log(wd.start)
-                video.currentTime = wd.start
-                video.play()
-            }
-        }
-        transcriptEl.appendChild($wd)
+
+        const text = transcript.slice(wd.startOffset, wd.endOffset)
         currentOffset = wd.endOffset
         currentTime = wd.end
-        blocks.push({ text: txt, start: wd.start, end: wd.end, el: $wd, word: wd })
+        blocks.push({ text, start: wd.start, end: wd.end, word: wd })
     }
-    
-    addUnlinked(transcript.length, video.duration)
-    console.log(blocks)
+
+    const text = transcript.slice(currentOffset, transcript.length)
+    currentOffset = transcript.length
+    blocks.push({ text, start: currentTime, end: video.duration })
+    return blocks
 }
+
+function renderBlocks(blocks: Block[]) {
+    transcriptEl.innerHTML = ""
+    for (const block of blocks) {      
+        const el = document.createElement('span') 
+        el.appendChild(document.createTextNode(block.text))
+        el.className = "block"
+        el.onclick = () => {
+            console.log(block.start)
+            video.currentTime = block.start
+            video.play()
+        }
+        transcriptEl.appendChild(el)
+        block.el = el
+    }
+}
+
+function shuffle(array: any[]) {
+    // https://stackoverflow.com/a/2450976
+    let currentIndex = array.length, randomIndex
+    // While there remain elements to shuffle.
+    while (currentIndex > 0) {
+        // Pick a remaining element.
+        randomIndex = Math.floor(Math.random() * currentIndex)
+        currentIndex--
+        // And swap it with the current element.
+        ;[array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]]
+    }
+    return array
+}
+
+function shuffleBlocks() {
+    shuffle(blocks)
+    renderBlocks(blocks)
+    // TODO: Play back video/audio in order determined by blocks.
+}
+
+document.querySelector("button")!.onclick = shuffleBlocks
 
 // var status_init = false
 // var status_log  = []		// [ status ]
@@ -239,7 +251,8 @@ function update() {
     if(INLINE_JSON) {
         // We want this to work from file:/// domains, so we provide a
         // mechanism for inlining the alignment data.
-        render(INLINE_JSON)
+        blocks = generateBlocks(INLINE_JSON)
+        renderBlocks(blocks)
     }
     else  {
         // Show the status
@@ -271,7 +284,7 @@ function update() {
 }
 
 var INLINE_JSON: Result = {
-    "transcript": "\n This is a sentence. And this is another sentence. And finally, we have a third sentence. Wow.\n",
+    "transcript": "  This is a sentence. And this is another sentence. And finally, we have a third sentence. Wow.\n",
     "words": [
         {
             "alignedWord": "this",
