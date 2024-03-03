@@ -1,0 +1,101 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+.download {
+  float: right;
+  background: #999;
+  padding: 0 5px;
+}
+.home {
+margin: 0;
+font-size: 125%;
+font-weight: lighter;
+text-transform: lowercase;
+}
+.home a {
+margin: 0;
+background: #666;
+padding-left: 25px;
+padding-right: 30px;
+margin-right: 20px;
+float: left;
+text-decoration: none;
+}
+.home:hover a {
+background: #555;
+}
+#audio {
+  margin-top: 9px;
+  width: 50%;
+  display: inline-block;
+}
+#transcript {
+  margin: 0 15px;
+  margin-top: 70px;
+  margin-bottom: 5em;
+  white-space: pre-wrap;
+  line-height: 2em;
+  max-width: 600px;
+  color: #999;
+}
+#transcript.status {
+  background-color: #333;
+  color: #fff;
+  font-family: Courier, mono;
+  line-height: 1em;
+  font-size: 10pt;
+  max-width: 100%;
+}
+#transcript.status h2 {
+  padding: 10px;
+}
+#transcript.status .entry {
+  margin-bottom: 10px;
+  padding: 10px;
+}
+#transcript.status progress {
+  width: 100%;
+  height: 30px;
+  margin-bottom: 20px;
+}
+.success, .space {
+  border: 1px solid black;
+}
+.success {
+  color: black;
+}
+.success:hover {
+  text-decoration: underline;
+}
+.active {
+  background-color: cyan;
+  color: magenta;
+}
+#preloader {
+  visibility: hidden;
+}
+.phactive {
+  text-decoration: underline;
+}
+.phones {
+  position: absolute;
+  color: #333;
+}
+.phones .phone {
+  margin-right: 5px;
+  font-family: Helvetica, sans-serif;
+  text-transform: uppercase;
+  font-size: 50%;
+}
+.phones .phone:last-child {
+  margin-right: 0;
+}
+#footer {
+margin-top: 100px;
+border-top: 1px dotted black;
+font-size: 8pt;
+font-style: italic;
+font-family: Helvetica, sans-serif;
+padding: 10px;
+}
