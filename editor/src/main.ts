@@ -71,18 +71,18 @@ function highlight_phone(block: Block, t: number) {
     }
 }
 
-function highlight_word() {
-    var t = video.currentTime
+function highlightWord(nextBlock: Block, t: number) {
+    // var t = video.currentTime
     // XXX: O(N); use binary search
-    var hits = blocks.filter(function(x) {
-        return (t - x.start) > 0.01 && (x.end - t) > 0.01
-    })
-    var nextBlock = hits[hits.length - 1]
+    // var hits = blocks.filter(function(x) {
+    //     return (t - x.start) > 0.01 && (x.end - t) > 0.01
+    // })
+    // var nextBlock = hits[hits.length - 1]
     
-    if (nextBlock && currentBlock != nextBlock) {
-        console.log(currentBlock, nextBlock)
-        nextBlock = blocks[(blocks.indexOf(currentBlock) + 1) % blocks.length]
-        setTimeout(() => video.currentTime = nextBlock.start, currentBlock.end - t)
+    // if (nextBlock && currentBlock != nextBlock) {
+        // console.log(currentBlock, nextBlock)
+        // nextBlock = blocks[(blocks.indexOf(currentBlock) + 1) % blocks.length]
+        // setTimeout(() => video.currentTime = nextBlock.start, currentBlock.end - t)
         for (const el of document.querySelectorAll(".active")) {
             el.classList.remove("active")
         }
@@ -92,15 +92,15 @@ function highlight_word() {
         if(nextBlock?.word && nextBlock?.el) {
             render_phones(nextBlock)
         }
-        currentBlock = nextBlock
-    }
+        // currentBlock = nextBlock
+    // }
     highlight_phone(currentBlock, t)
     
-    window.requestAnimationFrame(highlight_word)
+    // window.requestAnimationFrame(highlightWord)
 }
 // window.requestAnimationFrame(highlight_word)
 
-transcriptEl.innerHTML = "Loading..."
+transcriptEl.innerHTML = "Click to start." // "Loading..."
 
 interface Phone {
     duration: number
@@ -213,7 +213,13 @@ async function play() {
     let nextTime = 0
     currentBlock = blocks[blocks.length - 1]
     while (true) {
-        const nextBlock = blocks[(blocks.indexOf(currentBlock) + 1) % blocks.length]
+        // For fun:
+        // if (blocks.indexOf(currentBlock) === blocks.length - 1) {
+        //     shuffleBlocks()
+        //     currentBlock = blocks[blocks.length - 1]
+        // }
+        const nextIndex = (blocks.indexOf(currentBlock) + 1) % blocks.length
+        const nextBlock = blocks[nextIndex]
         // console.log(blocks.indexOf(currentBlock), blocks.indexOf(nextBlock))
         const duration = nextBlock.end - nextBlock.start
         const source = new AudioBufferSourceNode(audioContext, { buffer })
@@ -224,6 +230,7 @@ async function play() {
         setTimeout(() => {
             video.currentTime = nextBlock.start
             video.play()
+            highlightWord(nextBlock, nextBlock.start)
         }, gap * 1000)
         nextTime += duration
         await sleep(gap - 0.05)
