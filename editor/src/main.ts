@@ -1,3 +1,5 @@
+import "drag-drop-touch"
+
 const video = document.querySelector("video") as HTMLVideoElement
 window.onkeydown = function(ev) {
     if(ev.keyCode == 32) {
