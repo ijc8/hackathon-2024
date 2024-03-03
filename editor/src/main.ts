@@ -204,6 +204,7 @@ async function setup() {
         document.addEventListener("click", listener)
     })
     await audioContext.resume()
+    console.log(audioContext.outputLatency)
     const data = await (await fetch("a.wav")).arrayBuffer()
     buffer = await audioContext.decodeAudioData(data)
 }
@@ -213,7 +214,7 @@ async function play() {
     currentBlock = blocks[blocks.length - 1]
     while (true) {
         const nextBlock = blocks[(blocks.indexOf(currentBlock) + 1) % blocks.length]
-        console.log(blocks.indexOf(currentBlock), blocks.indexOf(nextBlock))
+        // console.log(blocks.indexOf(currentBlock), blocks.indexOf(nextBlock))
         const duration = nextBlock.end - nextBlock.start
         const source = new AudioBufferSourceNode(audioContext, { buffer })
         // console.log("duration", nextBlock.start, nextBlock.end, duration)
