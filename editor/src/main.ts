@@ -98,7 +98,7 @@ function highlight_word() {
     
     window.requestAnimationFrame(highlight_word)
 }
-window.requestAnimationFrame(highlight_word)
+// window.requestAnimationFrame(highlight_word)
 
 transcriptEl.innerHTML = "Loading..."
 
@@ -154,7 +154,7 @@ function generateBlocks(ret: Result): Block[] {
         if (wd.startOffset > currentOffset) {
             const text = transcript.slice(currentOffset, wd.startOffset)
             currentOffset = wd.startOffset
-            blocks.push({ text, start: currentTime, end: wd.start })
+            blocks.push({ text, start: currentTime, end: Math.max(currentTime, wd.start) })
         }
 
         const text = transcript.slice(wd.startOffset, wd.endOffset)
@@ -165,7 +165,7 @@ function generateBlocks(ret: Result): Block[] {
 
     const text = transcript.slice(currentOffset, transcript.length)
     currentOffset = transcript.length
-    blocks.push({ text, start: currentTime, end: video.duration })
+    blocks.push({ text, start: currentTime, end: buffer.duration })
     return blocks
 }
 
@@ -178,7 +178,7 @@ function renderBlocks(blocks: Block[]) {
         // el.onclick = () => {
         el.ontouchstart = () => {
             console.log(block.start)
-            video.currentTime = block.start
+            // video.currentTime = block.start
             // Imprecise and not supported in Chrome:
             // video.fastSeek(block.start)
             // video.play()
@@ -187,6 +187,49 @@ function renderBlocks(blocks: Block[]) {
         block.el = el
     }
 }
+
+const audioContext = new AudioContext()
+
+function sleep(secs: number) {
+    return new Promise(resolve => setTimeout(resolve, secs * 1000))
+}
+
+let buffer: AudioBuffer
+async function setup() {
+    await new Promise<void>(resolve => {
+        const listener = () => {
+            document.removeEventListener("click", listener)
+            resolve()
+        }
+        document.addEventListener("click", listener)
+    })
+    await audioContext.resume()
+    const data = await (await fetch("a.wav")).arrayBuffer()
+    buffer = await audioContext.decodeAudioData(data)
+}
+
+async function play() {
+    let nextTime = 0
+    currentBlock = blocks[blocks.length - 1]
+    while (true) {
+        const nextBlock = blocks[(blocks.indexOf(currentBlock) + 1) % blocks.length]
+        console.log(blocks.indexOf(currentBlock), blocks.indexOf(nextBlock))
+        const duration = nextBlock.end - nextBlock.start
+        const source = new AudioBufferSourceNode(audioContext, { buffer })
+        // console.log("duration", nextBlock.start, nextBlock.end, duration)
+        source.start(nextTime, nextBlock.start, duration)
+        source.connect(audioContext.destination)
+        const gap = nextTime - audioContext.currentTime
+        setTimeout(() => {
+            video.currentTime = nextBlock.start
+            video.play()
+        }, gap * 1000)
+        nextTime += duration
+        await sleep(gap - 0.05)
+        currentBlock = nextBlock
+    }
+}
+
 
 function shuffle(array: any[]) {
     // https://stackoverflow.com/a/2450976
@@ -253,13 +296,15 @@ document.querySelector("button")!.onclick = shuffleBlocks
 //     }
 // }
 
-function update() {
+async function update() {
     if(INLINE_JSON) {
         // We want this to work from file:/// domains, so we provide a
         // mechanism for inlining the alignment data.
+        await setup()
         blocks = generateBlocks(INLINE_JSON)
         currentBlock = blocks[0]
         renderBlocks(blocks)
+        play()
     }
     else  {
         // Show the status
@@ -723,13 +768,14 @@ var INLINE_JSON: Result = {
     ]
 }
 
+update()
 // Wait until we have video length.
-if (video.duration) {
-    update()
-} else {
-    const onLoadedMetadata = () => {
-        video.removeEventListener("loadedmetadata", onLoadedMetadata)
-        update()
-    }
-    video.addEventListener("loadedmetadata", onLoadedMetadata)
-}
+// if (video.duration) {
+//     update()
+// } else {
+//     const onLoadedMetadata = () => {
+//         video.removeEventListener("loadedmetadata", onLoadedMetadata)
+//         update()
+//     }
+//     video.addEventListener("loadedmetadata", onLoadedMetadata)
+// }
