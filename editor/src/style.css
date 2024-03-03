@@ -65,6 +65,9 @@ video {
   border: 1px solid black;
   color: black;
 }
+.block.dragover {
+  background-color: yellow !important;
+}
 .block:hover {
   text-decoration: underline;
 }

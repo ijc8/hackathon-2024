@@ -169,12 +169,24 @@ function generateBlocks(ret: Result): Block[] {
     return blocks
 }
 
+const tmpEl = document.createElement("span")
+tmpEl.id = "tmp"
+tmpEl.textContent = "TEMP"
+
 function renderBlocks(blocks: Block[]) {
     transcriptEl.innerHTML = ""
     for (const block of blocks) {      
         const el = document.createElement('span') 
         el.appendChild(document.createTextNode(block.text))
         el.className = "block"
+        el.draggable = true
+        el.addEventListener("dragenter", e => {
+            el.classList.add("dragover")
+            el.parentElement!.insertBefore(tmpEl, el)
+        })
+        el.addEventListener("dragleave", e => {
+            el.classList.remove("dragover")
+        })
         // el.onclick = () => {
         el.ontouchstart = () => {
             console.log(block.start)
