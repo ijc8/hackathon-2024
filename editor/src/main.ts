@@ -239,7 +239,7 @@ async function setup() {
     })
     await audioContext.resume()
     console.log(audioContext.outputLatency)
-    const data = await (await fetch("a.wav")).arrayBuffer()
+    const data = await (await fetch("v.mp4")).arrayBuffer()
     buffer = await audioContext.decodeAudioData(data)
 }
 
@@ -290,7 +290,6 @@ function shuffle(array: any[]) {
 function shuffleBlocks() {
     shuffle(blocks)
     renderBlocks(blocks)
-    // TODO: Play back video/audio in order determined by blocks.
 }
 
 const shuffleButton = document.querySelector("#shuffle") as HTMLButtonElement
