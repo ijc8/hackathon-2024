@@ -293,7 +293,11 @@ function shuffleBlocks() {
     // TODO: Play back video/audio in order determined by blocks.
 }
 
-document.querySelector("button")!.onclick = shuffleBlocks
+const shuffleButton = document.querySelector("#shuffle") as HTMLButtonElement
+shuffleButton.onclick = shuffleBlocks
+
+const fullscreenButton = document.querySelector("#fullscreen") as HTMLButtonElement
+fullscreenButton.onclick = () => video.requestFullscreen()
 
 // var status_init = false
 // var status_log  = []		// [ status ]

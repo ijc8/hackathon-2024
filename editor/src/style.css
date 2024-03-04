@@ -103,3 +103,7 @@ font-style: italic;
 font-family: Helvetica, sans-serif;
 padding: 10px;
 }
+video::-webkit-media-controls {
+  /* For Chrome; see https://stackoverflow.com/a/19493459 */
+  display:none !important;
+}
