@@ -135,7 +135,7 @@ interface Block {
 
 let blocks: Block[] = []
 
-function generateBlocks(ret: Result): Block[] {
+function generateBlocks(ret: Result, duration: number): Block[] {
     const blocks = []
     const wds = ret.words
     const transcript = ret.transcript
@@ -167,7 +167,7 @@ function generateBlocks(ret: Result): Block[] {
 
     const text = transcript.slice(currentOffset, transcript.length)
     currentOffset = transcript.length
-    blocks.push({ text, start: currentTime, end: buffer.duration })
+    blocks.push({ text, start: currentTime, end: duration })
     return blocks
 }
 
@@ -303,19 +303,24 @@ uploadButton.onchange = uploadVideo
 
 async function uploadVideo(e: Event) {
     console.log(e)
-    const data = new FormData()
-    data.append("audio", uploadButton.files![0])
+    const form = new FormData()
+    const file = uploadButton.files![0]
+    form.append("audio", file)
     const url = "transcriptions?async=false"
     console.log("sending request")
     const start = Date.now()
-    const req = await fetch(url, { method: "POST", body: data })
+    const req = await fetch(url, { method: "POST", body: form })
     console.log("req", req)
     const result = await req.json()
     console.log("result", result)
     console.log("took", (Date.now() - start) / 1000, "seconds")
-    // TODO
-    // const data = await (await fetch("v.mp4")).arrayBuffer()
-    // buffer = await audioContext.decodeAudioData(data)
+    // TODO clean up
+    const data = await file.arrayBuffer()
+    const _buffer = await audioContext.decodeAudioData(data)
+    const _blocks = generateBlocks(result, _buffer.duration)
+    renderBlocks(_blocks)
+    video.src = URL.createObjectURL(file)
+    ;[buffer, blocks, currentBlock] = [_buffer, _blocks, blocks[0]]
 }
 
 // var status_init = false
@@ -362,11 +367,11 @@ async function uploadVideo(e: Event) {
 // }
 
 async function update() {
-    if(INLINE_JSON) {
+    if (INLINE_JSON) {
         // We want this to work from file:/// domains, so we provide a
         // mechanism for inlining the alignment data.
         await setup()
-        blocks = generateBlocks(INLINE_JSON)
+        blocks = generateBlocks(INLINE_JSON, buffer.duration)
         currentBlock = blocks[0]
         renderBlocks(blocks)
         play()
