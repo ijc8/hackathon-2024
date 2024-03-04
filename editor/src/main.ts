@@ -196,18 +196,20 @@ function renderBlocks(blocks: Block[]) {
         })
         el.addEventListener("dragend", e => {
             tmpEl.style.display = "none"
-            blocks.splice(blocks.indexOf(destination!), 0, source!)
-            blocks.splice(blocks.indexOf(source!), 1)
+            let sourceIndex = blocks.indexOf(source!), destinationIndex = blocks.indexOf(destination!)
+            blocks.splice(destinationIndex, 0, source!)
+            if (sourceIndex > destinationIndex) sourceIndex++
+            blocks.splice(sourceIndex, 1)
             renderBlocks(blocks)
         })
         el.addEventListener("dragenter", e => {
-            el.classList.add("dragover")
+            // el.classList.add("dragover")
             // TODO: determine whether to insert before/after based on direction of motion or maybe previous insertion point.
             el.parentElement!.insertBefore(tmpEl, el)
             destination = block
         })
         el.addEventListener("dragleave", e => {
-            el.classList.remove("dragover")
+            // el.classList.remove("dragover")
         })
         // el.onclick = () => {
         el.ontouchstart = () => {
