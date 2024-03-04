@@ -298,6 +298,26 @@ shuffleButton.onclick = shuffleBlocks
 const fullscreenButton = document.querySelector("#fullscreen") as HTMLButtonElement
 fullscreenButton.onclick = () => video.requestFullscreen()
 
+const uploadButton = document.querySelector("#upload") as HTMLInputElement
+uploadButton.onchange = uploadVideo
+
+async function uploadVideo(e: Event) {
+    console.log(e)
+    const data = new FormData()
+    data.append("audio", uploadButton.files![0])
+    const url = "transcriptions?async=false"
+    console.log("sending request")
+    const start = Date.now()
+    const req = await fetch(url, { method: "POST", body: data })
+    console.log("req", req)
+    const result = await req.json()
+    console.log("result", result)
+    console.log("took", (Date.now() - start) / 1000, "seconds")
+    // TODO
+    // const data = await (await fetch("v.mp4")).arrayBuffer()
+    // buffer = await audioContext.decodeAudioData(data)
+}
+
 // var status_init = false
 // var status_log  = []		// [ status ]
 // var $status_pro
