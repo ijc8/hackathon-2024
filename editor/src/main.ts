@@ -179,7 +179,7 @@ tmpEl.id = "tmp"
 tmpEl.textContent = "TEMP"
 
 let source: BlockSource | null = null
-let destination: Block | null = null
+let destinationIndex: number | null = null
 
 interface BlockSource {
     source: "transcript" | "editor"
@@ -201,15 +201,20 @@ function startBlockDrag() {
 
 }
 
-function endBlockDrag() {
-    tmpEl.remove()
-    let index = editorBlocks.indexOf(destination!)
+function dropBlock() {
+    console.log("drop block", source, destinationIndex)
     if (source!.source === "editor") {
         let sourceIndex = editorBlocks.indexOf(source!.block)
         editorBlocks.splice(sourceIndex, 1)
-        if (index > sourceIndex) index--
+        if (destinationIndex !== null && destinationIndex > sourceIndex) destinationIndex--
     }
-    insertBlock(source!.block, index)
+    if (destinationIndex !== null) {
+        insertBlock(source!.block, destinationIndex)
+    }
+}
+
+function endBlockDrag() {
+    tmpEl.remove()
 }
 
 function renderTranscript() {
@@ -230,11 +235,20 @@ function renderTranscript() {
         transcriptEl.appendChild(el)
         block.el = el
     }
+    transcriptEl.ondragover = e => {
+        e.preventDefault()
+        destinationIndex = null
+        tmpEl.remove()
+    }
+    transcriptEl.ondrop = () => {
+        console.log("drop on transcript")
+        dropBlock()
+    }
 }
 
 function renderEditor(blocks: Block[]) {
     editorEl.innerHTML = ""
-    for (const block of blocks) {      
+    for (const [index, block] of blocks.entries()) {
         const el = document.createElement("span") 
         el.appendChild(document.createTextNode(block.text))
         el.className = "block"
@@ -244,14 +258,14 @@ function renderEditor(blocks: Block[]) {
             tmpEl.textContent = el.textContent
             el.parentElement!.insertBefore(tmpEl, el)
             source = { source: "editor", block }
-            destination = block
+            destinationIndex = index
         })
         el.addEventListener("dragend", endBlockDrag)
         el.addEventListener("dragenter", e => {
             // el.classList.add("dragover")
             // TODO: determine whether to insert before/after based on direction of motion or maybe previous insertion point.
             el.parentElement!.insertBefore(tmpEl, el)
-            destination = block
+            destinationIndex = index
         })
         el.addEventListener("dragleave", e => {
             // el.classList.remove("dragover")
@@ -266,6 +280,17 @@ function renderEditor(blocks: Block[]) {
         }
         editorEl.appendChild(el)
         block.el = el
+    }
+    editorEl.ondragover = e => {
+        e.preventDefault()
+        if (destinationIndex === null) {
+            destinationIndex = editorBlocks.length + 1
+            editorEl.appendChild(tmpEl)
+        }
+    }
+    editorEl.ondrop = () => {
+        console.log("drop on editor")
+        dropBlock()
     }
 }
 
@@ -294,11 +319,6 @@ async function play() {
     let nextTime = audioContext.currentTime
     currentBlock = editorBlocks[editorBlocks.length - 1]
     while (editorBlocks.length > 0) {
-        // For fun:
-        // if (blocks.indexOf(currentBlock) === blocks.length - 1) {
-        //     shuffleBlocks()
-        //     currentBlock = blocks[blocks.length - 1]
-        // }
         const nextIndex = (editorBlocks.indexOf(currentBlock) + 1) % editorBlocks.length
         const nextBlock = editorBlocks[nextIndex]
         // console.log(blocks.indexOf(currentBlock), blocks.indexOf(nextBlock))

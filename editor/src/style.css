@@ -2,6 +2,9 @@ html, body {
   margin: 0;
   padding: 0;
 }
+body {
+  height: 100vh;
+}
 .download {
   float: right;
   background: #999;
@@ -40,11 +43,15 @@ video {
   color: #999;
   user-select: none;
   font-size: larger;
+  border: 1px dashed gray;
 }
 #transcript {
   padding-bottom: 1em;
   margin-bottom: 1em;
   border-bottom: 1px solid black;
+}
+#editor {
+  height: 100%;
 }
 /* #transcript.status {
   background-color: #333;
