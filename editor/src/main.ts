@@ -134,7 +134,8 @@ interface Block {
     word?: Word
 }
 
-let blocks: Block[] = []
+let transcriptBlocks: Block[] = []
+let editorBlocks: Block[] = []
 
 function generateBlocks(ret: Result, duration: number): Block[] {
     const blocks = []
@@ -177,32 +178,75 @@ const tmpEl = document.createElement("span")
 tmpEl.id = "tmp"
 tmpEl.textContent = "TEMP"
 
-let source: Block | null = null
+let source: BlockSource | null = null
 let destination: Block | null = null
 
-function renderBlocks(container: HTMLElement, blocks: Block[]) {
-    container.innerHTML = ""
+interface BlockSource {
+    source: "transcript" | "editor"
+    block: Block
+}
+
+function insertBlock(block: Block, index: number) {
+    // Insert a copy so that duplicate blocks have unique identities.
+    // (This is important for handling rearrangement gracefully during playback.)
+    editorBlocks.splice(index, 0, { ...block })
+    if (editorBlocks.length === 1) {
+        // No words present; start playing.
+        play()
+    }
+    renderEditor(editorBlocks)
+}
+
+function startBlockDrag() {
+
+}
+
+function endBlockDrag() {
+    tmpEl.remove()
+    let index = editorBlocks.indexOf(destination!)
+    if (source!.source === "editor") {
+        let sourceIndex = editorBlocks.indexOf(source!.block)
+        editorBlocks.splice(sourceIndex, 1)
+        if (index > sourceIndex) index--
+    }
+    insertBlock(source!.block, index)
+}
+
+function renderTranscript() {
+    transcriptEl.innerHTML = ""
+    for (const block of transcriptBlocks) {      
+        const el = document.createElement("span") 
+        el.appendChild(document.createTextNode(block.text))
+        el.className = "block"
+        el.draggable = true
+        el.addEventListener("dragstart", e => {
+            // el.style.display = "none"
+            tmpEl.textContent = el.textContent
+            // el.parentElement!.insertBefore(tmpEl, el)
+            source = { source: "transcript", block }
+            // destination = block
+        })
+        el.addEventListener("dragend", endBlockDrag)
+        transcriptEl.appendChild(el)
+        block.el = el
+    }
+}
+
+function renderEditor(blocks: Block[]) {
+    editorEl.innerHTML = ""
     for (const block of blocks) {      
-        const el = document.createElement('span') 
+        const el = document.createElement("span") 
         el.appendChild(document.createTextNode(block.text))
         el.className = "block"
         el.draggable = true
         el.addEventListener("dragstart", e => {
             el.style.display = "none"
-            tmpEl.style.display = "inline"
             tmpEl.textContent = el.textContent
             el.parentElement!.insertBefore(tmpEl, el)
-            source = block
+            source = { source: "editor", block }
             destination = block
         })
-        el.addEventListener("dragend", e => {
-            tmpEl.style.display = "none"
-            let sourceIndex = blocks.indexOf(source!), destinationIndex = blocks.indexOf(destination!)
-            blocks.splice(destinationIndex, 0, source!)
-            if (sourceIndex > destinationIndex) sourceIndex++
-            blocks.splice(sourceIndex, 1)
-            renderBlocks(editorEl, blocks)
-        })
+        el.addEventListener("dragend", endBlockDrag)
         el.addEventListener("dragenter", e => {
             // el.classList.add("dragover")
             // TODO: determine whether to insert before/after based on direction of motion or maybe previous insertion point.
@@ -220,7 +264,7 @@ function renderBlocks(container: HTMLElement, blocks: Block[]) {
             // video.fastSeek(block.start)
             // video.play()
         }
-        container.appendChild(el)
+        editorEl.appendChild(el)
         block.el = el
     }
 }
@@ -247,16 +291,16 @@ async function setup() {
 }
 
 async function play() {
-    let nextTime = 0
-    currentBlock = blocks[blocks.length - 1]
-    while (true) {
+    let nextTime = audioContext.currentTime
+    currentBlock = editorBlocks[editorBlocks.length - 1]
+    while (editorBlocks.length > 0) {
         // For fun:
         // if (blocks.indexOf(currentBlock) === blocks.length - 1) {
         //     shuffleBlocks()
         //     currentBlock = blocks[blocks.length - 1]
         // }
-        const nextIndex = (blocks.indexOf(currentBlock) + 1) % blocks.length
-        const nextBlock = blocks[nextIndex]
+        const nextIndex = (editorBlocks.indexOf(currentBlock) + 1) % editorBlocks.length
+        const nextBlock = editorBlocks[nextIndex]
         // console.log(blocks.indexOf(currentBlock), blocks.indexOf(nextBlock))
         const duration = nextBlock.end - nextBlock.start
         const source = new AudioBufferSourceNode(audioContext, { buffer })
@@ -291,13 +335,13 @@ function shuffle(array: any[]) {
 }
 
 function shuffleBlocks() {
-    shuffle(blocks)
-    renderBlocks(editorEl, blocks)
+    shuffle(editorBlocks)
+    renderEditor(editorBlocks)
 }
 
 function clearBlocks() {
-    blocks = []
-    renderBlocks(editorEl, blocks)
+    editorBlocks = []
+    renderEditor(editorBlocks)
 }
 
 const shuffleButton = document.querySelector("#shuffle") as HTMLButtonElement
@@ -328,11 +372,12 @@ async function uploadVideo(e: Event) {
     // TODO clean up
     const data = await file.arrayBuffer()
     const _buffer = await audioContext.decodeAudioData(data)
-    const _blocks = generateBlocks(result, _buffer.duration)
-    renderBlocks(transcriptEl, _blocks)
-    renderBlocks(editorEl, _blocks)
+    transcriptBlocks = generateBlocks(result, _buffer.duration)
+    const _blocks = transcriptBlocks
+    renderTranscript()
+    renderEditor(_blocks)
     video.src = URL.createObjectURL(file)
-    ;[buffer, blocks, currentBlock] = [_buffer, _blocks, blocks[0]]
+    ;[buffer, editorBlocks, currentBlock] = [_buffer, _blocks, editorBlocks[0]]
 }
 
 // var status_init = false
@@ -383,10 +428,11 @@ async function update() {
         // We want this to work from file:/// domains, so we provide a
         // mechanism for inlining the alignment data.
         await setup()
-        blocks = generateBlocks(INLINE_JSON, buffer.duration)
-        currentBlock = blocks[0]
-        renderBlocks(transcriptEl, blocks)
-        renderBlocks(editorEl, blocks)
+        transcriptBlocks = generateBlocks(INLINE_JSON, buffer.duration)
+        editorBlocks = [...transcriptBlocks]
+        currentBlock = editorBlocks[0]
+        renderTranscript()
+        renderEditor(editorBlocks)
         play()
     }
     else  {
