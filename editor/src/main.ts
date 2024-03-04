@@ -9,6 +9,7 @@ window.onkeydown = function(ev) {
 }
 
 const transcriptEl = document.getElementById("transcript") as HTMLDivElement
+const editorEl = document.getElementById("editor") as HTMLDivElement
 
 let currentBlock: Block
 
@@ -179,8 +180,8 @@ tmpEl.textContent = "TEMP"
 let source: Block | null = null
 let destination: Block | null = null
 
-function renderBlocks(blocks: Block[]) {
-    transcriptEl.innerHTML = ""
+function renderBlocks(container: HTMLElement, blocks: Block[]) {
+    container.innerHTML = ""
     for (const block of blocks) {      
         const el = document.createElement('span') 
         el.appendChild(document.createTextNode(block.text))
@@ -200,7 +201,7 @@ function renderBlocks(blocks: Block[]) {
             blocks.splice(destinationIndex, 0, source!)
             if (sourceIndex > destinationIndex) sourceIndex++
             blocks.splice(sourceIndex, 1)
-            renderBlocks(blocks)
+            renderBlocks(editorEl, blocks)
         })
         el.addEventListener("dragenter", e => {
             // el.classList.add("dragover")
@@ -219,7 +220,7 @@ function renderBlocks(blocks: Block[]) {
             // video.fastSeek(block.start)
             // video.play()
         }
-        transcriptEl.appendChild(el)
+        container.appendChild(el)
         block.el = el
     }
 }
@@ -291,7 +292,12 @@ function shuffle(array: any[]) {
 
 function shuffleBlocks() {
     shuffle(blocks)
-    renderBlocks(blocks)
+    renderBlocks(editorEl, blocks)
+}
+
+function clearBlocks() {
+    blocks = []
+    renderBlocks(editorEl, blocks)
 }
 
 const shuffleButton = document.querySelector("#shuffle") as HTMLButtonElement
@@ -302,6 +308,9 @@ fullscreenButton.onclick = () => video.requestFullscreen()
 
 const uploadButton = document.querySelector("#upload") as HTMLInputElement
 uploadButton.onchange = uploadVideo
+
+const clearButton = document.querySelector("#clear") as HTMLButtonElement
+clearButton.onclick = clearBlocks
 
 async function uploadVideo(e: Event) {
     console.log(e)
@@ -320,7 +329,8 @@ async function uploadVideo(e: Event) {
     const data = await file.arrayBuffer()
     const _buffer = await audioContext.decodeAudioData(data)
     const _blocks = generateBlocks(result, _buffer.duration)
-    renderBlocks(_blocks)
+    renderBlocks(transcriptEl, _blocks)
+    renderBlocks(editorEl, _blocks)
     video.src = URL.createObjectURL(file)
     ;[buffer, blocks, currentBlock] = [_buffer, _blocks, blocks[0]]
 }
@@ -375,7 +385,8 @@ async function update() {
         await setup()
         blocks = generateBlocks(INLINE_JSON, buffer.duration)
         currentBlock = blocks[0]
-        renderBlocks(blocks)
+        renderBlocks(transcriptEl, blocks)
+        renderBlocks(editorEl, blocks)
         play()
     }
     else  {
