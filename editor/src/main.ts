@@ -91,6 +91,7 @@ function highlightWord(nextBlock: Block, t: number) {
         }
         if (nextBlock?.el) {
             nextBlock.el.classList.add('active')
+            nextBlock.source.el!.classList.add('active')
         }
         if(nextBlock?.word && nextBlock?.el) {
             render_phones(nextBlock)
@@ -127,6 +128,7 @@ interface Result {
 }
 
 interface Block {
+    source: Block
     text: string
     start: number
     end: number
@@ -170,7 +172,11 @@ function generateBlocks(ret: Result, duration: number): Block[] {
     const text = transcript.slice(currentOffset, transcript.length)
     currentOffset = transcript.length
     blocks.push({ text, start: currentTime, end: duration })
-    return blocks
+    return blocks.map(a => {
+        const b = { ...a, source: null as any as Block }
+        b.source = b
+        return b
+    })
 }
 
 // Drag to reorder: state
@@ -393,7 +399,7 @@ async function uploadVideo(e: Event) {
     const data = await file.arrayBuffer()
     const _buffer = await audioContext.decodeAudioData(data)
     transcriptBlocks = generateBlocks(result, _buffer.duration)
-    const _blocks = transcriptBlocks
+    const _blocks = transcriptBlocks.map(b => ({ ...b }))
     renderTranscript()
     renderEditor(_blocks)
     video.src = URL.createObjectURL(file)
@@ -449,7 +455,7 @@ async function update() {
         // mechanism for inlining the alignment data.
         await setup()
         transcriptBlocks = generateBlocks(INLINE_JSON, buffer.duration)
-        editorBlocks = [...transcriptBlocks]
+        editorBlocks = transcriptBlocks.map(b => ({ ...b }))
         currentBlock = editorBlocks[0]
         renderTranscript()
         renderEditor(editorBlocks)

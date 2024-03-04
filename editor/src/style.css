@@ -49,9 +49,11 @@ video {
   padding-bottom: 1em;
   margin-bottom: 1em;
   border-bottom: 1px solid black;
+  color: gray;
 }
 #editor {
   height: 100%;
+  color: black;
 }
 /* #transcript.status {
   background-color: #333;
@@ -75,7 +77,6 @@ video {
 } */
 .block {
   border: 1px solid black;
-  color: black;
 }
 .block.dragover {
   background-color: yellow !important;
