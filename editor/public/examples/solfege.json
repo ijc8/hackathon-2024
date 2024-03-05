@@ -1,0 +1,157 @@
+{
+  "transcript": "Do, re, mi, fa, sol, la, ti, do!",
+  "words": [
+    {
+      "alignedWord": "do",
+      "case": "success",
+      "end": 1.52,
+      "endOffset": 2,
+      "phones": [
+        {
+          "duration": 0.01,
+          "phone": "d_B"
+        },
+        {
+          "duration": 0.54,
+          "phone": "uw_E"
+        }
+      ],
+      "start": 0.97,
+      "startOffset": 0,
+      "word": "Do"
+    },
+    {
+      "alignedWord": "re",
+      "case": "success",
+      "end": 2.18,
+      "endOffset": 6,
+      "phones": [
+        {
+          "duration": 0.17,
+          "phone": "r_B"
+        },
+        {
+          "duration": 0.48,
+          "phone": "ey_E"
+        }
+      ],
+      "start": 1.53,
+      "startOffset": 4,
+      "word": "re"
+    },
+    {
+      "alignedWord": "mi",
+      "case": "success",
+      "end": 2.7700000000000005,
+      "endOffset": 10,
+      "phones": [
+        {
+          "duration": 0.13,
+          "phone": "m_B"
+        },
+        {
+          "duration": 0.4,
+          "phone": "iy_E"
+        }
+      ],
+      "start": 2.24,
+      "startOffset": 8,
+      "word": "mi"
+    },
+    {
+      "alignedWord": "<unk>",
+      "case": "success",
+      "end": 3.5100000000000002,
+      "endOffset": 14,
+      "phones": [
+        {
+          "duration": 0.58,
+          "phone": "oov_S"
+        }
+      ],
+      "start": 2.93,
+      "startOffset": 12,
+      "word": "fa"
+    },
+    {
+      "alignedWord": "sol",
+      "case": "success",
+      "end": 4.18,
+      "endOffset": 19,
+      "phones": [
+        {
+          "duration": 0.17,
+          "phone": "s_B"
+        },
+        {
+          "duration": 0.25,
+          "phone": "ow_I"
+        },
+        {
+          "duration": 0.23,
+          "phone": "l_E"
+        }
+      ],
+      "start": 3.53,
+      "startOffset": 16,
+      "word": "sol"
+    },
+    {
+      "alignedWord": "la",
+      "case": "success",
+      "end": 4.93,
+      "endOffset": 23,
+      "phones": [
+        {
+          "duration": 0.15,
+          "phone": "l_B"
+        },
+        {
+          "duration": 0.48,
+          "phone": "aa_E"
+        }
+      ],
+      "start": 4.3,
+      "startOffset": 21,
+      "word": "la"
+    },
+    {
+      "alignedWord": "ti",
+      "case": "success",
+      "end": 5.61,
+      "endOffset": 27,
+      "phones": [
+        {
+          "duration": 0.12,
+          "phone": "t_B"
+        },
+        {
+          "duration": 0.45,
+          "phone": "iy_E"
+        }
+      ],
+      "start": 5.04,
+      "startOffset": 25,
+      "word": "ti"
+    },
+    {
+      "alignedWord": "do",
+      "case": "success",
+      "end": 6.35,
+      "endOffset": 31,
+      "phones": [
+        {
+          "duration": 0.09,
+          "phone": "d_B"
+        },
+        {
+          "duration": 0.55,
+          "phone": "uw_E"
+        }
+      ],
+      "start": 5.71,
+      "startOffset": 29,
+      "word": "do"
+    }
+  ]
+}

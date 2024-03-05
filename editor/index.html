@@ -7,7 +7,7 @@
     <title>Editor</title>
   </head>
   <body>
-    <video src="v.mp4" preload loop muted></video><br>
+    <video loop muted></video><br>
     <button id="record">Record</button>
     <input id="upload" type="file" value="Upload" />
     <button id="shuffle">Shuffle</button>
@@ -18,6 +18,13 @@
     <button id="remove-words">Remove words</button>
     <button id="remove-spaces">Remove spaces</button>
     <button id="forget">Forget</button>
+    <div id="examples">
+      Examples:
+      <button>sentence</button>
+      <button>door</button>
+      <button>numbers</button>
+      <button>solfege</button>
+    </div>
     <div id="transcript"></div>
     <div id="editor"></div>
     <script type="module" src="/src/main.ts"></script>

@@ -1,13 +1,6 @@
 import "drag-drop-touch"
-import INLINE_JSON from "./example-results.json"
 
 const video = document.querySelector("video") as HTMLVideoElement
-window.onkeydown = function(ev) {
-    if(ev.keyCode == 32) {
-        ev.preventDefault()
-        video.pause()
-    }
-}
 
 const transcriptEl = document.getElementById("transcript") as HTMLDivElement
 const editorEl = document.getElementById("editor") as HTMLDivElement
@@ -105,7 +98,7 @@ function highlightWord(nextBlock: Block, t: number) {
 }
 // window.requestAnimationFrame(highlight_word)
 
-transcriptEl.innerHTML = "Click to start." // "Loading..."
+transcriptEl.innerHTML = "Select, upload, or record a video to begin." // "Loading..."
 
 interface Phone {
     duration: number
@@ -151,10 +144,8 @@ function generateBlocks(ret: Result, duration: number): Block[] {
     for (const wd of wds) {
         if (wd.case == "not-found-in-transcript") {
             // TODO: does this case actually happen? what should we do with this?
-            // var txt = ' ' + wd.word
-            // var $plaintext = document.createTextNode(txt)
-            // transcriptEl.appendChild($plaintext)
-            // continue
+            console.log("unexpected case", wd)
+            continue
         }
 
         // Add non-linked text
@@ -336,13 +327,12 @@ async function setup() {
         document.addEventListener("click", listener)
     })
     await audioContext.resume()
-    console.log(audioContext.outputLatency)
-    const data = await (await fetch("v.mp4")).arrayBuffer()
-    buffer = await audioContext.decodeAudioData(data)
+    console.log("audio running", audioContext.outputLatency)
 }
 
 let playing = false
 async function play() {
+    if (playing) return
     let nextTime = audioContext.currentTime
     currentBlock = editorBlocks[editorBlocks.length - 1]
     let timeoutHandle = 0
@@ -433,12 +423,17 @@ onClick("#forget", () => {
     updateEditor()
 })
 
+for (const el of document.querySelectorAll<HTMLButtonElement>("#examples button")) {
+    el.onclick = () => loadExample(el.textContent!)
+}
+
 function selectVideo(e: Event) {
     console.log(e)
     uploadVideo(uploadButton.files![0])
 }
 
 async function uploadVideo(blob: Blob) {
+    // Get transcription & alignment data from server.
     const form = new FormData()
     form.append("audio", blob)
     const url = "transcriptions?async=false"
@@ -449,15 +444,21 @@ async function uploadVideo(blob: Blob) {
     const result = await req.json()
     console.log("result", result)
     console.log("took", (Date.now() - start) / 1000, "seconds")
+    loadVideo(blob, result)
+}
+
+async function loadVideo(blob: Blob, result: Result) {
     // TODO clean up
     const data = await blob.arrayBuffer()
-    const _buffer = await audioContext.decodeAudioData(data)
-    transcriptBlocks = generateBlocks(result, _buffer.duration)
-    const _blocks = transcriptBlocks.map(b => ({ ...b }))
+    buffer = await audioContext.decodeAudioData(data)
+    transcriptBlocks = generateBlocks(result, buffer.duration)
+    editorBlocks = transcriptBlocks.map(b => ({ ...b }))
     renderTranscript()
-    renderEditor(_blocks)
+    renderEditor(editorBlocks)
     video.src = URL.createObjectURL(blob)
-    ;[buffer, editorBlocks, currentBlock] = [_buffer, _blocks, editorBlocks[0]]
+    if (playing) video.play()
+    // ;[buffer, editorBlocks, currentBlock] = [_buffer, _blocks, editorBlocks[0]]
+    play()
 }
 
 // var status_init = false
@@ -503,58 +504,53 @@ async function uploadVideo(blob: Blob) {
 //     }
 // }
 
+async function loadExample(name: string) {
+    const [video, alignment] = await Promise.all([
+        fetch(`examples/${name}.mp4`).then(r => r.blob()),
+        fetch(`examples/${name}.json`).then(r => r.json())
+    ])
+    loadVideo(video, alignment)
+}
+
 async function update() {
-    if (INLINE_JSON) {
-        // We want this to work from file:/// domains, so we provide a
-        // mechanism for inlining the alignment data.
-        await setup()
-        transcriptBlocks = generateBlocks(INLINE_JSON as Result, buffer.duration)
-        editorBlocks = transcriptBlocks.map(b => ({ ...b }))
-        currentBlock = editorBlocks[0]
-        renderTranscript()
-        renderEditor(editorBlocks)
-        play()
-    }
-    else  {
-        // Show the status
-        // get_json('status.json', function(ret) {
-        //     $a.style.visibility = 'hidden'
-        //     if (ret.status == 'ERROR') {
-        //         $preloader.style.visibility = 'hidden'
-        //         $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>'
-        //     } else if (ret.status == 'TRANSCRIBING' || ret.status == 'ALIGNING') {
-        //         $preloader.style.visibility = 'visible'
-        //         render_status(ret)
-        //         setTimeout(update, 2000)
-        //     } else if (ret.status == 'OK') {
-        //         $preloader.style.visibility = 'hidden'
-        //         // XXX: should we fetch the align.json?
-        //         window.location.reload()
-        //     } else if (ret.status == 'ENCODING' || ret.status == 'STARTED') {
-        //         $preloader.style.visibility = 'visible'
-        //         $trans.innerHTML = 'Encoding, please wait...'
-        //         setTimeout(update, 2000)
-        //     } else {
-        //         console.log("unknown status", ret)
-        //         $preloader.style.visibility = 'hidden'
-        //         $trans.innerHTML = ret.status + '...'
-        //         setTimeout(update, 5000);		
-        //     }
-        // })
-    }
+    // We want this to work from file:/// domains, so we provide a
+    // mechanism for inlining the alignment data.
+    await setup()
+    // transcriptBlocks = generateBlocks(INLINE_JSON as Result, buffer.duration)
+    // editorBlocks = transcriptBlocks.map(b => ({ ...b }))
+    // currentBlock = editorBlocks[0]
+    // renderTranscript()
+    // renderEditor(editorBlocks)
+    // play()
+
+    // Show the status
+    // get_json('status.json', function(ret) {
+    //     $a.style.visibility = 'hidden'
+    //     if (ret.status == 'ERROR') {
+    //         $preloader.style.visibility = 'hidden'
+    //         $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>'
+    //     } else if (ret.status == 'TRANSCRIBING' || ret.status == 'ALIGNING') {
+    //         $preloader.style.visibility = 'visible'
+    //         render_status(ret)
+    //         setTimeout(update, 2000)
+    //     } else if (ret.status == 'OK') {
+    //         $preloader.style.visibility = 'hidden'
+    //         // XXX: should we fetch the align.json?
+    //         window.location.reload()
+    //     } else if (ret.status == 'ENCODING' || ret.status == 'STARTED') {
+    //         $preloader.style.visibility = 'visible'
+    //         $trans.innerHTML = 'Encoding, please wait...'
+    //         setTimeout(update, 2000)
+    //     } else {
+    //         console.log("unknown status", ret)
+    //         $preloader.style.visibility = 'hidden'
+    //         $trans.innerHTML = ret.status + '...'
+    //         setTimeout(update, 5000);		
+    //     }
+    // })
 }
 
 update()
-// Wait until we have video length.
-// if (video.duration) {
-//     update()
-// } else {
-//     const onLoadedMetadata = () => {
-//         video.removeEventListener("loadedmetadata", onLoadedMetadata)
-//         update()
-//     }
-//     video.addEventListener("loadedmetadata", onLoadedMetadata)
-// }
 
 function record() {
     console.log("getUserMedia supported.")
