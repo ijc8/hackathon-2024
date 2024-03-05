@@ -227,6 +227,9 @@ function dropBlock() {
 }
 
 function endBlockDrag() {
+    if (source?.source === "editor") {
+        source.block.el!.remove()
+    }
     dropBlock()
     tmpEl.remove()
 }
@@ -273,7 +276,12 @@ function renderEditor(blocks: Block[]) {
             tmpEl.textContent = el.textContent
             el.parentElement!.insertBefore(tmpEl, el)
             // HACK: Wait to remove the element so we still have the image of it while dragging.
-            window.requestAnimationFrame(() => el.remove())
+            // window.requestAnimationFrame(() => el.remove())
+            // window.requestAnimationFrame(() => transcriptEl.appendChild(el))
+            // setTimeout(() => transcriptEl.appendChild(el), 0)
+            // transcriptEl.appendChild(el)
+            // HACK: This version of the hack also works on mobile (with drag-drop-touch).
+            window.requestAnimationFrame(() => { el.style.display = "none" })
             source = { source: "editor", block }
             destinationIndex = index
         })
@@ -352,7 +360,7 @@ async function play() {
         timeoutHandle = window.setTimeout(() => {
             window.clearTimeout(prevTimeoutHandle) // fix for race condition with small gaps
             video.currentTime = nextBlock.start
-            // video.play()
+            if (video.paused) video.play()
             highlightWord(nextBlock, nextBlock.start)
         }, gap * 1000)
         nextTime += duration
@@ -360,6 +368,7 @@ async function play() {
         currentBlock = nextBlock
     }
     playing = false
+    window.clearTimeout(timeoutHandle)
     video.pause()
 }
 
@@ -471,8 +480,6 @@ async function loadVideo(blob: Blob, result: Result) {
     renderTranscript()
     renderEditor(editorBlocks)
     video.src = URL.createObjectURL(blob)
-    if (playing) video.play()
-    // ;[buffer, editorBlocks, currentBlock] = [_buffer, _blocks, editorBlocks[0]]
     play()
 }
 
@@ -528,9 +535,7 @@ async function loadExample(name: string) {
 }
 
 async function update() {
-    // We want this to work from file:/// domains, so we provide a
-    // mechanism for inlining the alignment data.
-    await setup()
+    // await setup()
     // transcriptBlocks = generateBlocks(INLINE_JSON as Result, buffer.duration)
     // editorBlocks = transcriptBlocks.map(b => ({ ...b }))
     // currentBlock = editorBlocks[0]
@@ -565,7 +570,7 @@ async function update() {
     // })
 }
 
-update()
+setup()
 
 function record() {
     console.log("getUserMedia supported.")
