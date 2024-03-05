@@ -198,12 +198,23 @@ function insertBlock(block: Block, index: number) {
     // Insert a copy so that duplicate blocks have unique identities.
     // (This is important for handling rearrangement gracefully during playback.)
     editorBlocks.splice(index, 0, { ...block })
+    updateEditor()
     if (editorBlocks.length === 1) {
         // No words present; start playing.
         play()
     }
     renderEditor(editorBlocks)
 }
+
+
+function updateEditor() {
+    if (!playing) {
+        // Not playing (due to empty editor).
+        play()
+    }
+    renderEditor(editorBlocks)
+}
+
 
 function startBlockDrag() {
 
@@ -330,10 +341,13 @@ async function setup() {
     buffer = await audioContext.decodeAudioData(data)
 }
 
+let playing = false
 async function play() {
     let nextTime = audioContext.currentTime
     currentBlock = editorBlocks[editorBlocks.length - 1]
     let timeoutHandle = 0
+    playing = true
+    video.play()
     while (editorBlocks.length > 0) {
         const nextIndex = (editorBlocks.indexOf(currentBlock) + 1) % editorBlocks.length
         const nextBlock = editorBlocks[nextIndex]
@@ -348,13 +362,15 @@ async function play() {
         timeoutHandle = window.setTimeout(() => {
             window.clearTimeout(prevTimeoutHandle) // fix for race condition with small gaps
             video.currentTime = nextBlock.start
-            video.play()
+            // video.play()
             highlightWord(nextBlock, nextBlock.start)
         }, gap * 1000)
         nextTime += duration
         await sleep(gap - 0.05)
         currentBlock = nextBlock
     }
+    playing = false
+    video.pause()
 }
 
 
@@ -378,44 +394,53 @@ function onClick(selector: string, cb: () => void) {
 
 onClick("#shuffle", () => {
     shuffle(editorBlocks)
-    renderEditor(editorBlocks)
+    updateEditor()
 })
 
 onClick("#fullscreen", () => video.requestFullscreen())
 
 const uploadButton = document.querySelector("#upload") as HTMLInputElement
-uploadButton.onchange = uploadVideo
+uploadButton.onchange = selectVideo
 
 onClick("#clear", () => {
     editorBlocks = []
-    renderEditor(editorBlocks)
+    updateEditor()
 })
 
 onClick("#reset", () => {
     editorBlocks = transcriptBlocks.map(b => ({ ...b }))
-    renderEditor(editorBlocks)
+    updateEditor()
 })
 
 onClick("#sort", () => {
     editorBlocks.sort((a, b) => a.text.localeCompare(b.text) )
-    renderEditor(editorBlocks)
+    updateEditor()
 })
 
 onClick("#remove-words", () => {
     editorBlocks = editorBlocks.filter(b => !b.word)
-    renderEditor(editorBlocks)
+    updateEditor()
 })
 
 onClick("#remove-spaces", () => {
     editorBlocks = editorBlocks.filter(b => b.word)
-    renderEditor(editorBlocks)
+    updateEditor()
 })
 
-async function uploadVideo(e: Event) {
+onClick("#forget", () => {
+    // Randomly forget blocks.
+    editorBlocks = editorBlocks.filter(() => Math.random() < 0.5)
+    updateEditor()
+})
+
+function selectVideo(e: Event) {
     console.log(e)
+    uploadVideo(uploadButton.files![0])
+}
+
+async function uploadVideo(blob: Blob) {
     const form = new FormData()
-    const file = uploadButton.files![0]
-    form.append("audio", file)
+    form.append("audio", blob)
     const url = "transcriptions?async=false"
     console.log("sending request")
     const start = Date.now()
@@ -425,13 +450,13 @@ async function uploadVideo(e: Event) {
     console.log("result", result)
     console.log("took", (Date.now() - start) / 1000, "seconds")
     // TODO clean up
-    const data = await file.arrayBuffer()
+    const data = await blob.arrayBuffer()
     const _buffer = await audioContext.decodeAudioData(data)
     transcriptBlocks = generateBlocks(result, _buffer.duration)
     const _blocks = transcriptBlocks.map(b => ({ ...b }))
     renderTranscript()
     renderEditor(_blocks)
-    video.src = URL.createObjectURL(file)
+    video.src = URL.createObjectURL(blob)
     ;[buffer, editorBlocks, currentBlock] = [_buffer, _blocks, editorBlocks[0]]
 }
 
@@ -567,8 +592,9 @@ function record() {
             const blob = new Blob(chunks, { type: "video/mp4" })
             chunks = []
             video.srcObject = null
-            video.src = URL.createObjectURL(blob)
+            // video.src = URL.createObjectURL(blob)
             console.log("recorder stopped")
+            uploadVideo(blob)
         }
 
         mediaRecorder.ondataavailable = e => {
