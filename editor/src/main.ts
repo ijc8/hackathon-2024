@@ -209,18 +209,22 @@ function startBlockDrag() {
 }
 
 function dropBlock() {
+    if (!source) return
     console.log("drop block", source, destinationIndex)
-    if (source!.source === "editor") {
-        let sourceIndex = editorBlocks.indexOf(source!.block)
+    if (source.source === "editor") {
+        let sourceIndex = editorBlocks.indexOf(source.block)
         editorBlocks.splice(sourceIndex, 1)
         if (destinationIndex !== null && destinationIndex > sourceIndex) destinationIndex--
     }
     if (destinationIndex !== null) {
-        insertBlock(source!.block, destinationIndex)
+        insertBlock(source.block, destinationIndex)
     }
+    source = null
+    destinationIndex = null
 }
 
 function endBlockDrag() {
+    dropBlock()
     tmpEl.remove()
 }
 
@@ -328,6 +332,7 @@ async function setup() {
 async function play() {
     let nextTime = audioContext.currentTime
     currentBlock = editorBlocks[editorBlocks.length - 1]
+    let timeoutHandle = 0
     while (editorBlocks.length > 0) {
         const nextIndex = (editorBlocks.indexOf(currentBlock) + 1) % editorBlocks.length
         const nextBlock = editorBlocks[nextIndex]
@@ -338,7 +343,9 @@ async function play() {
         source.start(nextTime, nextBlock.start, duration)
         source.connect(audioContext.destination)
         const gap = nextTime - audioContext.currentTime
-        setTimeout(() => {
+        const prevTimeoutHandle = timeoutHandle
+        timeoutHandle = window.setTimeout(() => {
+            window.clearTimeout(prevTimeoutHandle) // fix for race condition with small gaps
             video.currentTime = nextBlock.start
             video.play()
             highlightWord(nextBlock, nextBlock.start)

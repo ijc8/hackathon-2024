@@ -79,17 +79,19 @@ video {
     margin-bottom: 20px;
 } */
 .block {
-    border: 1px solid black;
+    /* border: 1px solid black; */
+    border: 1px solid white;
 }
 .block.dragover {
-    background-color: yellow !important;
+    background-color: red !important;
 }
 .block:hover {
+    border: 1px dotted gray;
     text-decoration: underline;
 }
 .active {
-    background-color: cyan;
-    color: magenta;
+    background-color: yellow;
+    /* color: magenta; */
 }
 #preloader {
     visibility: hidden;
