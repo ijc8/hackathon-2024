@@ -1,122 +1,125 @@
 html, body {
-  margin: 0;
-  padding: 0;
+    margin: 0;
+    padding: 0;
 }
 body {
-  height: 100vh;
+    height: 100vh;
 }
 .download {
-  float: right;
-  background: #999;
-  padding: 0 5px;
+    float: right;
+    background: #999;
+    padding: 0 5px;
 }
 .home {
-margin: 0;
-font-size: 125%;
-font-weight: lighter;
-text-transform: lowercase;
+    margin: 0;
+    font-size: 125%;
+    font-weight: lighter;
+    text-transform: lowercase;
 }
 .home a {
-margin: 0;
-background: #666;
-padding-left: 25px;
-padding-right: 30px;
-margin-right: 20px;
-float: left;
-text-decoration: none;
+    margin: 0;
+    background: #666;
+    padding-left: 25px;
+    padding-right: 30px;
+    margin-right: 20px;
+    float: left;
+    text-decoration: none;
 }
 .home:hover a {
-background: #555;
+    background: #555;
 }
 video {
-  margin-top: 9px;
-  max-width: calc(min(100%, 500px));
-  display: block;
+    margin-top: 9px;
+    max-width: calc(min(100%, 500px));
+    display: block;
 }
 #transcript, #editor {
-  margin: 0 15px;
-  /* margin-top: 70px; */
-  /* margin-bottom: 5em; */
-  white-space: pre-wrap;
-  line-height: 2em;
-  max-width: 600px;
-  color: #999;
-  user-select: none;
-  font-size: larger;
-  border: 1px dashed gray;
+    margin: 0 15px;
+    /* margin-top: 70px; */
+    /* margin-bottom: 5em; */
+    white-space: pre-wrap;
+    line-height: 2em;
+    max-width: 600px;
+    color: #999;
+    user-select: none;
+    font-size: larger;
+    border: 1px dashed gray;
 }
 #transcript {
-  padding-bottom: 1em;
-  margin-bottom: 1em;
-  border-bottom: 1px solid black;
-  color: gray;
+    padding-bottom: 1em;
+    margin-bottom: 1em;
+    border-bottom: 1px solid black;
+    color: gray;
 }
 #editor {
-  height: 100%;
-  color: black;
+    height: 100%;
+    color: black;
+}
+#tmp {
+    color: gray;
 }
 /* #transcript.status {
-  background-color: #333;
-  color: #fff;
-  font-family: Courier, mono;
-  line-height: 1em;
-  font-size: 10pt;
-  max-width: 100%;
+    background-color: #333;
+    color: #fff;
+    font-family: Courier, mono;
+    line-height: 1em;
+    font-size: 10pt;
+    max-width: 100%;
 }
 #transcript.status h2 {
-  padding: 10px;
+    padding: 10px;
 }
 #transcript.status .entry {
-  margin-bottom: 10px;
-  padding: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
 }
 #transcript.status progress {
-  width: 100%;
-  height: 30px;
-  margin-bottom: 20px;
+    width: 100%;
+    height: 30px;
+    margin-bottom: 20px;
 } */
 .block {
-  border: 1px solid black;
+    border: 1px solid black;
 }
 .block.dragover {
-  background-color: yellow !important;
+    background-color: yellow !important;
 }
 .block:hover {
-  text-decoration: underline;
+    text-decoration: underline;
 }
 .active {
-  background-color: cyan;
-  color: magenta;
+    background-color: cyan;
+    color: magenta;
 }
 #preloader {
-  visibility: hidden;
+    visibility: hidden;
 }
 .phactive {
-  text-decoration: underline;
+    text-decoration: underline;
 }
 .phones {
-  position: absolute;
-  color: #333;
-  pointer-events: none;
+    position: absolute;
+    color: #333;
+    pointer-events: none;
 }
 .phones .phone {
-  margin-right: 5px;
-  font-family: Helvetica, sans-serif;
-  text-transform: uppercase;
-  font-size: 50%;
+    margin-right: 5px;
+    font-family: Helvetica, sans-serif;
+    text-transform: uppercase;
+    font-size: 50%;
 }
 .phones .phone:last-child {
-  margin-right: 0;
+    margin-right: 0;
 }
 #footer {
-margin-top: 100px;
-border-top: 1px dotted black;
-font-size: 8pt;
-font-style: italic;
-font-family: Helvetica, sans-serif;
-padding: 10px;
+    margin-top: 100px;
+    border-top: 1px dotted black;
+    font-size: 8pt;
+    font-style: italic;
+    font-family: Helvetica, sans-serif;
+    padding: 10px;
 }
 video::-webkit-media-controls {
-  /* For Chrome; see https://stackoverflow.com/a/19493459 */
-  display:none !important;
+    /* For Chrome; see https://stackoverflow.com/a/19493459 */
+    display:none !important;
 }

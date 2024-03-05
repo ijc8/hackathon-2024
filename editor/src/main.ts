@@ -263,9 +263,10 @@ function renderEditor(blocks: Block[]) {
         el.className = "block"
         el.draggable = true
         el.addEventListener("dragstart", e => {
-            el.style.display = "none"
             tmpEl.textContent = el.textContent
             el.parentElement!.insertBefore(tmpEl, el)
+            // HACK: Wait to remove the element so we still have the image of it while dragging.
+            window.requestAnimationFrame(() => el.remove())
             source = { source: "editor", block }
             destinationIndex = index
         })
