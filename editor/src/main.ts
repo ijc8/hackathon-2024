@@ -1,7 +1,7 @@
 import "drag-drop-touch"
 
 const video = document.querySelector("video") as HTMLVideoElement
-
+const statusEl = document.querySelector("#status") as HTMLDivElement
 const transcriptEl = document.getElementById("transcript") as HTMLDivElement
 const editorEl = document.getElementById("editor") as HTMLDivElement
 
@@ -98,7 +98,7 @@ function highlightWord(nextBlock: Block, t: number) {
 }
 // window.requestAnimationFrame(highlight_word)
 
-transcriptEl.innerHTML = "Select, upload, or record a video to begin." // "Loading..."
+statusEl.innerHTML = "Select, upload, or record a video to begin." // "Loading..."
 
 interface Phone {
     duration: number
@@ -164,6 +164,7 @@ function generateBlocks(ret: Result, duration: number): Block[] {
     const text = transcript.slice(currentOffset, transcript.length)
     currentOffset = transcript.length
     blocks.push({ text, start: currentTime, end: duration })
+    console.log(blocks)
     return blocks.map(a => {
         const b = { ...a, source: null as any as Block }
         b.text = b.text.replace(" ", "⎵")
@@ -275,7 +276,7 @@ function renderEditor(blocks: Block[]) {
         el.addEventListener("dragstart", e => {
             tmpEl.textContent = el.textContent
             el.parentElement!.insertBefore(tmpEl, el)
-            // HACK: Wait to remove the element so we still have the image of it while dragging.
+            // HACK: Wait to remove the element so we sthave the image of it while dragging.
             // window.requestAnimationFrame(() => el.remove())
             // window.requestAnimationFrame(() => transcriptEl.appendChild(el))
             // setTimeout(() => transcriptEl.appendChild(el), 0)
@@ -445,6 +446,7 @@ async function uploadVideo(blob: Blob) {
     // Get transcription from server.
     let transcription: string
     {
+        statusEl.textContent = "Transcribing..."
         const form = new FormData()
         form.append("video", blob)
         const url = "transcribe"
@@ -456,6 +458,7 @@ async function uploadVideo(blob: Blob) {
     // Get alignment from server.
     let alignment: Result
     {
+        statusEl.textContent = "Aligning..."
         const form = new FormData()
         form.append("audio", blob)
         form.append("transcript", transcription)
@@ -473,6 +476,7 @@ async function uploadVideo(blob: Blob) {
 
 async function loadVideo(blob: Blob, result: Result) {
     // TODO clean up
+    statusEl.textContent = "Decoding..."
     const data = await blob.arrayBuffer()
     buffer = await audioContext.decodeAudioData(data)
     transcriptBlocks = generateBlocks(result, buffer.duration)
@@ -481,6 +485,7 @@ async function loadVideo(blob: Blob, result: Result) {
     renderEditor(editorBlocks)
     video.src = URL.createObjectURL(blob)
     play()
+    statusEl.textContent = "Ready."
 }
 
 // var status_init = false
@@ -527,6 +532,7 @@ async function loadVideo(blob: Blob, result: Result) {
 // }
 
 async function loadExample(name: string) {
+    statusEl.textContent = `Fetching "${name}"...`
     const [video, alignment] = await Promise.all([
         fetch(`examples/${name}.mp4`).then(r => r.blob()),
         fetch(`examples/${name}.json`).then(r => r.json())
@@ -583,6 +589,7 @@ function record() {
     .then(stream => {
         const mediaRecorder = new MediaRecorder(stream)
 
+        statusEl.textContent = "Ready to record."
         recordButton.onclick = () => {
             if (mediaRecorder.state === "inactive") {
                 video.srcObject = stream
@@ -591,12 +598,14 @@ function record() {
                 console.log("recorder started")
                 recordButton.style.background = "red"
                 recordButton.style.color = "black"
+                statusEl.textContent = "Recording..."
             } else {
                 mediaRecorder.stop()
                 console.log(mediaRecorder.state)
                 console.log("recorder stopped")
                 recordButton.style.background = ""
                 recordButton.style.color = ""
+                statusEl.textContent = "Stopped recording."
             }
         }
 
