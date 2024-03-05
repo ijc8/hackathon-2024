@@ -433,18 +433,33 @@ function selectVideo(e: Event) {
 }
 
 async function uploadVideo(blob: Blob) {
-    // Get transcription & alignment data from server.
-    const form = new FormData()
-    form.append("audio", blob)
-    const url = "transcriptions?async=false"
-    console.log("sending request")
-    const start = Date.now()
-    const req = await fetch(url, { method: "POST", body: form })
-    console.log("req", req)
-    const result = await req.json()
-    console.log("result", result)
-    console.log("took", (Date.now() - start) / 1000, "seconds")
-    loadVideo(blob, result)
+    // Get transcription from server.
+    let transcription: string
+    {
+        const form = new FormData()
+        form.append("video", blob)
+        const url = "transcribe"
+        console.log("sending transcription request")
+        const resp = await fetch(url, { method: "POST", body: form })
+        transcription = await resp.text()
+    }
+    console.log("Whisper transcription:", transcription)
+    // Get alignment from server.
+    let alignment: Result
+    {
+        const form = new FormData()
+        form.append("audio", blob)
+        form.append("transcript", transcription)
+        const url = "transcriptions?async=false"
+        console.log("sending alignment request")
+        const start = Date.now()
+        const resp = await fetch(url, { method: "POST", body: form })
+        console.log("req", resp)
+        console.log("took", (Date.now() - start) / 1000, "seconds")
+        alignment = await resp.json()
+    }
+    console.log("result", alignment)
+    loadVideo(blob, alignment)
 }
 
 async function loadVideo(blob: Blob, result: Result) {
