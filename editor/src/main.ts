@@ -530,3 +530,60 @@ update()
 //     }
 //     video.addEventListener("loadedmetadata", onLoadedMetadata)
 // }
+
+function record() {
+    console.log("getUserMedia supported.")
+    
+    const constraints = { video: true, audio: true }
+    let chunks: Blob[] = []
+
+    navigator.mediaDevices
+    .getUserMedia(constraints)
+    .then(stream => {
+        const mediaRecorder = new MediaRecorder(stream)
+
+        recordButton.onclick = () => {
+            if (mediaRecorder.state === "inactive") {
+                video.srcObject = stream
+                mediaRecorder.start()
+                console.log(mediaRecorder.state)
+                console.log("recorder started")
+                recordButton.style.background = "red"
+                recordButton.style.color = "black"
+            } else {
+                mediaRecorder.stop()
+                console.log(mediaRecorder.state)
+                console.log("recorder stopped")
+                recordButton.style.background = ""
+                recordButton.style.color = ""
+            }
+        }
+
+        mediaRecorder.onstop = _e => {
+            console.log("data available after MediaRecorder.stop() called.")
+            // const video = document.createElement("video")
+            // document.body.prepend(video)
+            // video.controls = true
+            const blob = new Blob(chunks, { type: "video/mp4" })
+            chunks = []
+            video.srcObject = null
+            video.src = URL.createObjectURL(blob)
+            console.log("recorder stopped")
+        }
+
+        mediaRecorder.ondataavailable = e => {
+            chunks.push(e.data)
+        }
+    })
+    .catch((err) => {
+        console.error(`The following error occurred: ${err}`)
+    })
+}
+
+const recordButton = document.querySelector<HTMLButtonElement>("#record")!
+
+if (navigator.mediaDevices) {
+    recordButton.onclick = record
+} else {
+    recordButton.disabled = true
+}
