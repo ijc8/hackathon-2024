@@ -174,6 +174,7 @@ function generateBlocks(ret: Result, duration: number): Block[] {
     blocks.push({ text, start: currentTime, end: duration })
     return blocks.map(a => {
         const b = { ...a, source: null as any as Block }
+        b.text = b.text.replace(" ", "⎵")
         b.source = b
         return b
     })
@@ -228,6 +229,7 @@ function renderTranscript() {
     for (const block of transcriptBlocks) {      
         const el = document.createElement("span") 
         el.appendChild(document.createTextNode(block.text))
+        el.appendChild(document.createElement("wbr"))
         el.className = "block"
         el.draggable = true
         el.addEventListener("dragstart", e => {
@@ -257,6 +259,7 @@ function renderEditor(blocks: Block[]) {
     for (const [index, block] of blocks.entries()) {
         const el = document.createElement("span") 
         el.appendChild(document.createTextNode(block.text))
+        el.appendChild(document.createElement("wbr"))
         el.className = "block"
         el.draggable = true
         el.addEventListener("dragstart", e => {
@@ -360,27 +363,44 @@ function shuffle(array: any[]) {
     return array
 }
 
-function shuffleBlocks() {
+function onClick(selector: string, cb: () => void) {
+    document.querySelector<HTMLButtonElement>(selector)!.onclick = cb
+}
+
+onClick("#shuffle", () => {
     shuffle(editorBlocks)
     renderEditor(editorBlocks)
-}
+})
 
-function clearBlocks() {
-    editorBlocks = []
-    renderEditor(editorBlocks)
-}
-
-const shuffleButton = document.querySelector("#shuffle") as HTMLButtonElement
-shuffleButton.onclick = shuffleBlocks
-
-const fullscreenButton = document.querySelector("#fullscreen") as HTMLButtonElement
-fullscreenButton.onclick = () => video.requestFullscreen()
+onClick("#fullscreen", () => video.requestFullscreen())
 
 const uploadButton = document.querySelector("#upload") as HTMLInputElement
 uploadButton.onchange = uploadVideo
 
-const clearButton = document.querySelector("#clear") as HTMLButtonElement
-clearButton.onclick = clearBlocks
+onClick("#clear", () => {
+    editorBlocks = []
+    renderEditor(editorBlocks)
+})
+
+onClick("#reset", () => {
+    editorBlocks = transcriptBlocks.map(b => ({ ...b }))
+    renderEditor(editorBlocks)
+})
+
+onClick("#sort", () => {
+    editorBlocks.sort((a, b) => a.text.localeCompare(b.text) )
+    renderEditor(editorBlocks)
+})
+
+onClick("#remove-words", () => {
+    editorBlocks = editorBlocks.filter(b => !b.word)
+    renderEditor(editorBlocks)
+})
+
+onClick("#remove-spaces", () => {
+    editorBlocks = editorBlocks.filter(b => b.word)
+    renderEditor(editorBlocks)
+})
 
 async function uploadVideo(e: Event) {
     console.log(e)
