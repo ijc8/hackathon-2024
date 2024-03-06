@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 import os
+import sys
 
 import tempfile
 
@@ -10,6 +11,14 @@ from sanic.request import Request
 from sanic.response import text
 
 app = Sanic("Book")
+
+upload_dir = os.path.join(sys.path[0], "uploads")
+
+@app.post("sensors")
+async def sensors(request):
+    print("sensors", request)
+    print("body", request.body)
+    return text("great!")
 
 @app.post("transcribe")
 async def transcribe(request):
@@ -38,20 +47,18 @@ async def transcribe(request):
 
 # TODO multi-client thing
 MIN_VALUE, MAX_VALUE = 0, 127
-state = [0] * 8
+state = []
 update = asyncio.Event()
 
 @app.websocket("/ws")
 async def websocket(request, ws):
+    global state
     # A coroutine is spawned for each connected client.
-    client_state = state[:]
-    client_mode = mode
+    # client_state = state[:]
     print("New websocket connection from", request.ip)
     # New connection: send the current state.
     await ws.send(json.dumps({
-        "mode": mode,
-        "params": state,
-        "id": request.ip.split(".")[-1],
+        "state": state,
     }))
     recv = asyncio.create_task(ws.recv())
     updated = asyncio.create_task(update.wait())
@@ -63,14 +70,16 @@ async def websocket(request, ws):
             if task is recv:
                 t = time.time()
                 # Uncomment to see what we got from the client:
-                message = json.loads(task.result())
+                print(task.result())
+                # message = json.loads(task.result())
                 # print(f"Got message from {request.ip}: {message}")
                 # Got a message from the client; update the state.
-                for param, delta in message.items():
-                    param = int(param)
-                    state[param] = max(MIN_VALUE, min(state[param] + delta, MAX_VALUE))
+                # for param, delta in message.items():
+                #     param = int(param)
+                #     state[param] = max(MIN_VALUE, min(state[param] + delta, MAX_VALUE))
                     # Clients update their local state immediately:
-                    client_state[param] += delta
+                    # client_state[param] += delta
+                # state = message
                 # Signal to all coroutines that they should send updates to their clients.
                 update.set()
                 update.clear()
@@ -78,15 +87,16 @@ async def websocket(request, ws):
             elif task is updated:
                 # State updated.
                 # Send mode if it changed.
-                if mode != client_mode:
-                    client_mode = mode
-                    await ws.send(json.dumps(mode))
+                # if mode != client_mode:
+                    # client_mode = mode
+                    # await ws.send(json.dumps(mode))
                 # Compute the diff with the client's local state, and send the necessary updates.
-                diff = [[i, v] for i, v in enumerate(state) if v != client_state[i]]
+                # diff = [[i, v] for i, v in enumerate(state) if v != client_state[i]]
                 # Don't send a message if nothing needs to be updated.  
-                if diff:
-                    client_state[:] = state
-                    await ws.send(json.dumps(diff))
+                # if diff:
+                    # client_state[:] = state
+                    # await ws.send(json.dumps(diff))
+                await ws.send(json.dumps(state))
                 updated = asyncio.create_task(update.wait())
 
 # app.static("/", "index.html")

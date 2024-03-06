@@ -1,6 +1,55 @@
 import "drag-drop-touch"
 
-const video = document.querySelector("video") as HTMLVideoElement
+// A client may be an editor, player, or both.
+type Role = "player" | "editor" | null
+const role = new URL(window.location.toString()).searchParams.get("role") as Role
+console.log(role)
+
+const playerHTML = `<video loop muted></video><br>`
+
+const editorHTML = `
+<button id="record">Record</button>
+<input id="upload" type="file" value="Upload" />
+<button id="shuffle">Shuffle</button>
+<button id="fullscreen">Fullscreen</button>
+<button id="clear">Clear</button>
+<button id="reset">Reset</button>
+<button id="sort">Sort</button>
+<button id="remove-words">Remove words</button>
+<button id="remove-spaces">Remove spaces</button>
+<button id="forget">Forget</button>
+<div id="examples">
+  Examples:
+  <button>sentence</button>
+  <button>door</button>
+  <button>numbers</button>
+  <button>solfege</button>
+</div>
+<div id="transcript"></div>
+<div id="editor"></div>
+`
+
+document.querySelector("#app")!.innerHTML = `
+<div id="status"></div>
+${role !== "editor" ? playerHTML : ""}
+${role !== "player" ? editorHTML : ""}
+`
+
+const socket = new WebSocket(`ws://localhost:8000/ws`)
+socket.onopen = () => {
+    console.log("socket open")
+}
+socket.onmessage = e => {
+    console.log("socket message", e.data)
+}
+socket.onerror = () => {
+    console.log("socket error")
+}
+socket.onclose = () => {
+    console.log("socket close")
+}
+
+const video = document.querySelector<HTMLVideoElement>("video") as HTMLVideoElement
 const statusEl = document.querySelector("#status") as HTMLDivElement
 const transcriptEl = document.getElementById("transcript") as HTMLDivElement
 const editorEl = document.getElementById("editor") as HTMLDivElement
@@ -85,7 +134,7 @@ function highlightWord(nextBlock: Block, t: number) {
         }
         if (nextBlock?.el) {
             nextBlock.el.classList.add('active')
-            nextBlock.source.el!.classList.add('active')
+            transcriptBlocks[nextBlock.source].el!.classList.add('active')
         }
         if(nextBlock?.word && nextBlock?.el) {
             render_phones(nextBlock)
@@ -122,7 +171,7 @@ interface Result {
 }
 
 interface Block {
-    source: Block
+    source: number // index into `transcriptBlocks`
     text: string
     start: number
     end: number
@@ -165,10 +214,9 @@ function generateBlocks(ret: Result, duration: number): Block[] {
     currentOffset = transcript.length
     blocks.push({ text, start: currentTime, end: duration })
     console.log(blocks)
-    return blocks.map(a => {
-        const b = { ...a, source: null as any as Block }
+    return blocks.map((a, index) => {
+        const b = { ...a, source: index }
         b.text = b.text.replace(" ", "⎵")
-        b.source = b
         return b
     })
 }
@@ -204,12 +252,8 @@ function updateEditor() {
         // Not playing (due to empty editor).
         play()
     }
+    socket.send(JSON.stringify(editorBlocks))
     renderEditor(editorBlocks)
-}
-
-
-function startBlockDrag() {
-
 }
 
 function dropBlock() {
@@ -236,6 +280,7 @@ function endBlockDrag() {
 }
 
 function renderTranscript() {
+    if (role === "player") return
     transcriptEl.innerHTML = ""
     for (const block of transcriptBlocks) {      
         const el = document.createElement("span") 
@@ -266,6 +311,7 @@ function renderTranscript() {
 }
 
 function renderEditor(blocks: Block[]) {
+    if (role === "player") return
     editorEl.innerHTML = ""
     for (const [index, block] of blocks.entries()) {
         const el = document.createElement("span") 
@@ -476,6 +522,7 @@ async function uploadVideo(blob: Blob) {
 
 async function loadVideo(blob: Blob, result: Result) {
     // TODO clean up
+    socket.send(blob)
     statusEl.textContent = "Decoding..."
     const data = await blob.arrayBuffer()
     buffer = await audioContext.decodeAudioData(data)
