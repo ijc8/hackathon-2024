@@ -1,5 +1,7 @@
 import "drag-drop-touch"
 import NoSleep from "nosleep.js"
+// Supports weights 400-800
+import '@fontsource-variable/eb-garamond';
 
 // A client may be an editor, player, or both.
 type Role = "player" | "editor" | null
