@@ -1,4 +1,5 @@
 import "drag-drop-touch"
+import NoSleep from "nosleep.js"
 
 // A client may be an editor, player, or both.
 type Role = "player" | "editor" | null
@@ -399,11 +400,15 @@ function sleep(secs: number) {
     return new Promise(resolve => setTimeout(resolve, secs * 1000))
 }
 
+// For mobile
+const noSleep = new NoSleep()
+
 let buffer: AudioBuffer
 async function setup() {
     await new Promise<void>(resolve => {
         const listener = () => {
             document.removeEventListener("click", listener)
+            noSleep.enable()
             resolve()
         }
         document.addEventListener("click", listener)
