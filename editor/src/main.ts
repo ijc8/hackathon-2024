@@ -496,6 +496,59 @@ if (role !== "player") {
 
     const recordButton = document.querySelector<HTMLButtonElement>("#record")!
 
+    function record() {
+        console.log("getUserMedia supported.")
+        
+        const constraints = { video: true, audio: true }
+        let chunks: Blob[] = []
+
+        navigator.mediaDevices
+        .getUserMedia(constraints)
+        .then(stream => {
+            const mediaRecorder = new MediaRecorder(stream)
+
+            statusEl.textContent = "Ready to record."
+            recordButton.onclick = () => {
+                if (mediaRecorder.state === "inactive") {
+                    if (video) video.srcObject = stream
+                    mediaRecorder.start()
+                    console.log(mediaRecorder.state)
+                    console.log("recorder started")
+                    recordButton.style.background = "red"
+                    recordButton.style.color = "black"
+                    statusEl.textContent = "Recording..."
+                } else {
+                    mediaRecorder.stop()
+                    console.log(mediaRecorder.state)
+                    console.log("recorder stopped")
+                    recordButton.style.background = ""
+                    recordButton.style.color = ""
+                    statusEl.textContent = "Stopped recording."
+                }
+            }
+
+            mediaRecorder.onstop = _e => {
+                console.log("data available after MediaRecorder.stop() called.")
+                // const video = document.createElement("video")
+                // document.body.prepend(video)
+                // video.controls = true
+                const blob = new Blob(chunks, { type: "video/mp4" })
+                chunks = []
+                if (video) video.srcObject = null
+                // video.src = URL.createObjectURL(blob)
+                console.log("recorder stopped")
+                uploadVideo(blob)
+            }
+
+            mediaRecorder.ondataavailable = e => {
+                chunks.push(e.data)
+            }
+        })
+        .catch((err) => {
+            console.error(`The following error occurred: ${err}`)
+        })
+    }
+
     if (navigator.mediaDevices) {
         recordButton.onclick = record
     } else {
@@ -508,35 +561,15 @@ if (role !== "editor") {
 }
 
 async function uploadVideo(blob: Blob) {
-    // Get transcription from server.
-    let transcription: string
-    {
-        statusEl.textContent = "Transcribing..."
-        const form = new FormData()
-        form.append("video", blob)
-        const url = "transcribe"
-        console.log("sending transcription request")
-        const resp = await fetch(url, { method: "POST", body: form })
-        transcription = await resp.text()
-    }
-    console.log("Whisper transcription:", transcription)
-    // Get alignment from server.
-    let alignment: Result
-    {
-        statusEl.textContent = "Aligning..."
-        const form = new FormData()
-        form.append("audio", blob)
-        form.append("transcript", transcription)
-        const url = "transcriptions?async=false"
-        console.log("sending alignment request")
-        const start = Date.now()
-        const resp = await fetch(url, { method: "POST", body: form })
-        console.log("req", resp)
-        console.log("took", (Date.now() - start) / 1000, "seconds")
-        alignment = await resp.json()
-    }
-    console.log("result", alignment)
-    loadVideo(blob, alignment)
+    // Get transcription & alignment from server.
+    statusEl.textContent = "Transcribing & aligning..."
+    const form = new FormData()
+    form.append("video", blob)
+    const url = "transcribe"
+    console.log("sending transcription request")
+    const resp = await fetch(url, { method: "POST", body: form })
+    const name = await resp.text()
+    loadProcessedVideo(`uploads/${name}`)
 }
 
 async function loadVideo(blob: Blob, result: Result) {
@@ -646,56 +679,3 @@ async function update() {
 }
 
 setup()
-
-function record() {
-    console.log("getUserMedia supported.")
-    
-    const constraints = { video: true, audio: true }
-    let chunks: Blob[] = []
-
-    navigator.mediaDevices
-    .getUserMedia(constraints)
-    .then(stream => {
-        const mediaRecorder = new MediaRecorder(stream)
-
-        statusEl.textContent = "Ready to record."
-        recordButton.onclick = () => {
-            if (mediaRecorder.state === "inactive") {
-                video.srcObject = stream
-                mediaRecorder.start()
-                console.log(mediaRecorder.state)
-                console.log("recorder started")
-                recordButton.style.background = "red"
-                recordButton.style.color = "black"
-                statusEl.textContent = "Recording..."
-            } else {
-                mediaRecorder.stop()
-                console.log(mediaRecorder.state)
-                console.log("recorder stopped")
-                recordButton.style.background = ""
-                recordButton.style.color = ""
-                statusEl.textContent = "Stopped recording."
-            }
-        }
-
-        mediaRecorder.onstop = _e => {
-            console.log("data available after MediaRecorder.stop() called.")
-            // const video = document.createElement("video")
-            // document.body.prepend(video)
-            // video.controls = true
-            const blob = new Blob(chunks, { type: "video/mp4" })
-            chunks = []
-            video.srcObject = null
-            // video.src = URL.createObjectURL(blob)
-            console.log("recorder stopped")
-            uploadVideo(blob)
-        }
-
-        mediaRecorder.ondataavailable = e => {
-            chunks.push(e.data)
-        }
-    })
-    .catch((err) => {
-        console.error(`The following error occurred: ${err}`)
-    })
-}

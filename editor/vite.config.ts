@@ -5,6 +5,7 @@ export default defineConfig({
         proxy: {
             "/transcriptions": "http://localhost:8765",
             "/transcribe": "http://localhost:8000",
+            "/uploads": "http://localhost:8000",
         }
     }
 })
