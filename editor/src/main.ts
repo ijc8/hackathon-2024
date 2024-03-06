@@ -659,8 +659,7 @@ async function loadVideo(url: string, remoteControlled=false) {
         fetch(`${url}.json`).then(r => r.json())
     ])
     statusEl.textContent = "Decoding..."
-    const data = await videoFile.arrayBuffer()
-    buffer = await audioContext.decodeAudioData(data)
+    buffer = await audioContext.decodeAudioData(await videoFile.arrayBuffer())
     transcriptBlocks = generateBlocks(alignment, buffer.duration)
     renderTranscript()
     if (video) video.src = URL.createObjectURL(videoFile)

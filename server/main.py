@@ -31,12 +31,18 @@ async def transcribe(request):
     print("received video", len(file.body))
     with tempfile.TemporaryDirectory() as tmp_dir:
         name = datetime.datetime.utcnow().isoformat()
-        # NOTE: We're assuming we get an mp4 from the client.
-        video_path = os.path.join(upload_dir, name + ".mp4")
-        audio_path = os.path.join(tmp_dir, "a.wav")
-        with open(video_path, "wb") as video_file:
+        # Dump post body into temporary file
+        tmp_video_path = os.path.join(tmp_dir, "v")
+        with open(tmp_video_path, "wb") as video_file:
             video_file.write(file.body)
-        proc = await asyncio.create_subprocess_exec("/usr/bin/ffmpeg", "-i", video_path, "-ar", "16000", audio_path)
+        # Re-encode video for fast decode & seeking (critical on mobile)
+        video_path = os.path.join(upload_dir, name + ".mp4")
+        proc = await asyncio.create_subprocess_exec("/usr/bin/ffmpeg", "-i", tmp_video_path, "-tune", "fastdecode", "-g", "1", video_path)
+        ret = await proc.wait()
+        # Extract audio for whisper.cpp
+        audio_path = os.path.join(tmp_dir, "a.wav")
+        # audio_path = os.path.join(upload_dir, name + ".wav")
+        proc = await asyncio.create_subprocess_exec("/usr/bin/ffmpeg", "-i", tmp_video_path, "-ar", "16000", audio_path)
         ret = await proc.wait()
         print("ffmpeg returned", ret)
         proc = await asyncio.create_subprocess_exec(
@@ -141,7 +147,7 @@ async def websocket(request, ws):
 app.static("/", "../editor/dist/index.html")
 app.static("/assets", "../editor/dist/assets", name="assets")
 app.static("/uploads", upload_dir, name="uploads")
-app.static("/examples", "../editor/dist/examples", name="examples")
+app.static("/examples", "../editor/public/examples", name="examples")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, dev=True)
