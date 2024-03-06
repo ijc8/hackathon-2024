@@ -8,21 +8,15 @@ console.log(role)
 
 const playerHTML = `
 <video loop muted></video><br>
+<button id="fullscreen">Fullscreen</button>
 `
 
 const editorHTML = `
 <div>
+    <button id="fullscreen">Fullscreen</button>
     <button id="record">Record</button>
-    <input id="upload" type="file" value="Upload" />
-</div>
-<div id="editor-controls">
-    <button id="shuffle">Shuffle</button>
-    <button id="clear">Clear</button>
-    <button id="reset">Reset</button>
-    <button id="sort">Sort</button>
-    <button id="remove-words">No words</button>
-    <button id="remove-spaces">No spaces</button>
-    <button id="forget">Forget</button>
+    <label for="upload" class="upload-label">Upload</label>
+    <input id="upload" type="file" />
 </div>
 <div id="examples">
   Examples:
@@ -33,11 +27,19 @@ const editorHTML = `
 </div>
 <div id="transcript"></div>
 <div id="editor"></div>
+<div id="editor-controls">
+    <button id="shuffle">Shuffle</button>
+    <button id="clear">Clear</button>
+    <button id="reset">Reset</button>
+    <button id="sort">Sort</button>
+    <button id="remove-words">No words</button>
+    <button id="remove-spaces">No spaces</button>
+    <button id="forget">Forget</button>
+</div>
 `
 
 document.querySelector("#app")!.innerHTML = `
 <div id="status"></div>
-<button id="fullscreen">Fullscreen</button>
 ${role !== "editor" ? playerHTML : ""}
 ${role !== "player" ? editorHTML : ""}
 `

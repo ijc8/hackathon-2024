@@ -7,6 +7,17 @@ html, body {
     font-weight: 450;
     font-style: normal;
 }
+input[type="file"] {
+    display: none;
+}
+button, .upload-label {
+    all: unset;
+    font-family: inherit;
+    /* border: 1px solid black; */
+    /* border-bottom: 1px solid black; */
+    font-weight: 550;
+    text-decoration: underline;
+}
 body {
     height: 100vh;
 }
