@@ -141,6 +141,7 @@ async def websocket(request, ws):
 app.static("/", "../editor/dist/index.html")
 app.static("/assets", "../editor/dist/assets", name="assets")
 app.static("/uploads", upload_dir, name="uploads")
+app.static("/examples", "../editor/dist/examples", name="examples")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, dev=True)

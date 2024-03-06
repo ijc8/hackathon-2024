@@ -53,11 +53,13 @@ interface BlocksMessage {
 
 type Message = VideoMessage | BlocksMessage
 
-const socket = new WebSocket(`ws://localhost:8000/ws`)
+const websocketProtocol = location.protocol === "https:" ? "wss" : "ws"
+const socket = new WebSocket(`${websocketProtocol}://${location.host}/ws`)
 socket.onopen = () => {
     console.log("socket open")
 }
 socket.onmessage = e => {
+    // statusEl.innerText = e.data
     const data: Message = JSON.parse(e.data)
     console.log("socket message", data)
     if (data.type === "video") {
@@ -67,10 +69,12 @@ socket.onmessage = e => {
         updateEditor(true)
     }
 }
-socket.onerror = () => {
+socket.onerror = e => {
+    statusEl.innerText = "Connection error"
     console.log("socket error")
 }
-socket.onclose = () => {
+socket.onclose = e => {
+    statusEl.innerText = "Connection closed"
     console.log("socket close")
 }
 
@@ -265,6 +269,7 @@ interface BlockSource {
 
 
 function updateEditor(remoteControlled=false) {
+    blockId = editorBlocks.length ? (Math.max(...editorBlocks.map(b => b.id)) + 1) : 0
     if (!playing) {
         // Not playing (due to empty editor).
         play()
