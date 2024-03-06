@@ -55,6 +55,8 @@ video {
     margin-bottom: 1em;
     border-bottom: 1px solid black;
     color: gray;
+    max-height: 50%;
+    overflow-y: scroll;
 }
 #editor {
     height: 100%;

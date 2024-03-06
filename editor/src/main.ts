@@ -61,7 +61,7 @@ socket.onmessage = e => {
     const data: Message = JSON.parse(e.data)
     console.log("socket message", data)
     if (data.type === "video") {
-        loadProcessedVideo(data.url, true)
+        loadVideo(data.url, true)
     } else if (data.type === "blocks") {
         editorBlocks = data.blocks
         updateEditor(true)
@@ -160,7 +160,9 @@ function highlightWord(nextBlock: Block, t: number) {
         }
         if (nextBlock?.el) {
             nextBlock.el.classList.add('active')
-            transcriptBlocks[nextBlock.source].el!.classList.add('active')
+            if (transcriptBlocks.length) {
+                transcriptBlocks[nextBlock.source].el!.classList.add('active')
+            }
         }
         if(nextBlock?.word && nextBlock?.el) {
             render_phones(nextBlock)
@@ -261,13 +263,6 @@ interface BlockSource {
     block: Block
 }
 
-function insertBlock(block: Block, index: number) {
-    // Insert a copy so that duplicate blocks have unique identities.
-    // (This is important for handling rearrangement gracefully during playback.)
-    editorBlocks.splice(index, 0, { ...block })
-    updateEditor()
-}
-
 
 function updateEditor(remoteControlled=false) {
     if (!playing) {
@@ -289,8 +284,11 @@ function dropBlock() {
         if (destinationIndex !== null && destinationIndex > sourceIndex) destinationIndex--
     }
     if (destinationIndex !== null) {
-        insertBlock(source.block, destinationIndex)
+        // Insert a copy so that duplicate blocks have unique identities.
+        // (This is important for handling rearrangement gracefully during playback.)
+        editorBlocks.splice(destinationIndex, 0, { ...source.block, id: blockId++ })
     }
+    updateEditor()
     source = null
     destinationIndex = null
 }
@@ -312,7 +310,7 @@ function renderTranscript() {
         el.appendChild(document.createElement("wbr"))
         el.className = "block"
         el.draggable = true
-        el.addEventListener("dragstart", e => {
+        el.addEventListener("dragstart", () => {
             // el.style.display = "none"
             tmpEl.textContent = el.textContent
             // el.parentElement!.insertBefore(tmpEl, el)
@@ -343,7 +341,7 @@ function renderEditor(blocks: Block[]) {
         el.appendChild(document.createElement("wbr"))
         el.className = "block"
         el.draggable = true
-        el.addEventListener("dragstart", e => {
+        el.addEventListener("dragstart", () => {
             tmpEl.textContent = el.textContent
             el.parentElement!.insertBefore(tmpEl, el)
             // HACK: Wait to remove the element so we sthave the image of it while dragging.
@@ -357,13 +355,13 @@ function renderEditor(blocks: Block[]) {
             destinationIndex = index
         })
         el.addEventListener("dragend", endBlockDrag)
-        el.addEventListener("dragenter", e => {
+        el.addEventListener("dragenter", () => {
             // el.classList.add("dragover")
             // TODO: determine whether to insert before/after based on direction of motion or maybe previous insertion point.
             el.parentElement!.insertBefore(tmpEl, el)
             destinationIndex = index
         })
-        el.addEventListener("dragleave", e => {
+        el.addEventListener("dragleave", () => {
             // el.classList.remove("dragover")
         })
         // el.onclick = () => {
@@ -516,7 +514,7 @@ if (role !== "player") {
     })
 
     for (const el of document.querySelectorAll<HTMLButtonElement>("#examples button")) {
-        el.onclick = () => loadProcessedVideo(`examples/${el.textContent!}`)
+        el.onclick = () => loadVideo(`examples/${el.textContent!}`)
     }
 
     const recordButton = document.querySelector<HTMLButtonElement>("#record")!
@@ -594,19 +592,7 @@ async function uploadVideo(blob: Blob) {
     console.log("sending transcription request")
     const resp = await fetch(url, { method: "POST", body: form })
     const name = await resp.text()
-    loadProcessedVideo(`uploads/${name}`)
-}
-
-async function loadVideo(blob: Blob, result: Result) {
-    // TODO clean up
-    statusEl.textContent = "Decoding..."
-    const data = await blob.arrayBuffer()
-    buffer = await audioContext.decodeAudioData(data)
-    transcriptBlocks = generateBlocks(result, buffer.duration)
-    renderTranscript()
-    if (video) video.src = URL.createObjectURL(blob)
-    resetEditor()
-    statusEl.textContent = "Ready."
+    loadVideo(`uploads/${name}`)
 }
 
 // var status_init = false
@@ -652,53 +638,27 @@ async function loadVideo(blob: Blob, result: Result) {
 //     }
 // }
 
-async function loadProcessedVideo(url: string, remoteControlled=false) {
+async function loadVideo(url: string, remoteControlled=false) {
+    // await audioContext.resume()
     if (!remoteControlled) {
         console.log("loadProcessedVideo send")
         socket.send(JSON.stringify({ type: "video", url }))
     }
     statusEl.textContent = `Fetching "${url}"...`
-    const [video, alignment] = await Promise.all([
+    let [videoFile, alignment] = await Promise.all([
         fetch(`${url}.mp4`).then(r => r.blob()),
         fetch(`${url}.json`).then(r => r.json())
     ])
-    loadVideo(video, alignment)
-}
-
-async function update() {
-    // await setup()
-    // transcriptBlocks = generateBlocks(INLINE_JSON as Result, buffer.duration)
-    // editorBlocks = transcriptBlocks.map(b => ({ ...b }))
-    // currentBlock = editorBlocks[0]
-    // renderTranscript()
-    // renderEditor(editorBlocks)
-    // play()
-
-    // Show the status
-    // get_json('status.json', function(ret) {
-    //     $a.style.visibility = 'hidden'
-    //     if (ret.status == 'ERROR') {
-    //         $preloader.style.visibility = 'hidden'
-    //         $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>'
-    //     } else if (ret.status == 'TRANSCRIBING' || ret.status == 'ALIGNING') {
-    //         $preloader.style.visibility = 'visible'
-    //         render_status(ret)
-    //         setTimeout(update, 2000)
-    //     } else if (ret.status == 'OK') {
-    //         $preloader.style.visibility = 'hidden'
-    //         // XXX: should we fetch the align.json?
-    //         window.location.reload()
-    //     } else if (ret.status == 'ENCODING' || ret.status == 'STARTED') {
-    //         $preloader.style.visibility = 'visible'
-    //         $trans.innerHTML = 'Encoding, please wait...'
-    //         setTimeout(update, 2000)
-    //     } else {
-    //         console.log("unknown status", ret)
-    //         $preloader.style.visibility = 'hidden'
-    //         $trans.innerHTML = ret.status + '...'
-    //         setTimeout(update, 5000);		
-    //     }
-    // })
+    statusEl.textContent = "Decoding..."
+    const data = await videoFile.arrayBuffer()
+    buffer = await audioContext.decodeAudioData(data)
+    transcriptBlocks = generateBlocks(alignment, buffer.duration)
+    renderTranscript()
+    if (video) video.src = URL.createObjectURL(videoFile)
+    if (!remoteControlled) {
+        resetEditor()
+    }
+    statusEl.textContent = "Ready."
 }
 
 setup()

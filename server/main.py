@@ -73,8 +73,9 @@ async def transcribe(request):
 
 # TODO multi-client thing
 MIN_VALUE, MAX_VALUE = 0, 127
-state = []
-update = asyncio.Event()
+state = {}
+# update = asyncio.Event()
+clients = []
 
 @app.websocket("/ws")
 async def websocket(request, ws):
@@ -86,48 +87,60 @@ async def websocket(request, ws):
     # await ws.send(json.dumps({
     #     "state": state,
     # }))
-    recv = asyncio.create_task(ws.recv())
-    updated = asyncio.create_task(update.wait())
-    while True:
-        # Wait for a new message from our client, or an update to the state (from another client).
-        # Handle whichever happens first.
-        done, _ = await asyncio.wait({recv, updated}, return_when=asyncio.FIRST_COMPLETED)
-        for task in done:
-            if task is recv:
-                t = time.time()
-                # Uncomment to see what we got from the client:
-                print(task.result())
-                message = json.loads(task.result())
-                # print(f"Got message from {request.ip}: {message}")
-                # Got a message from the client; update the state.
-                # for param, delta in message.items():
-                #     param = int(param)
-                #     state[param] = max(MIN_VALUE, min(state[param] + delta, MAX_VALUE))
-                    # Clients update their local state immediately:
-                    # client_state[param] += delta
-                state = message
-                # Signal to all coroutines that they should send updates to their clients.
-                update.set()
-                update.clear()
-                recv = asyncio.create_task(ws.recv())
-                # TODO: Only broadcast to others
-            elif task is updated:
-                # State updated.
-                # Send mode if it changed.
-                # if mode != client_mode:
-                    # client_mode = mode
-                    # await ws.send(json.dumps(mode))
-                # Compute the diff with the client's local state, and send the necessary updates.
-                # diff = [[i, v] for i, v in enumerate(state) if v != client_state[i]]
-                # Don't send a message if nothing needs to be updated.  
-                # if diff:
-                    # client_state[:] = state
-                    # await ws.send(json.dumps(diff))
-                await ws.send(json.dumps(state))
-                updated = asyncio.create_task(update.wait())
+    try:
+        clients.append(ws)
+        if state:
+            await asyncio.wait([ws.send(message) for message in state.values()])
+        # recv = asyncio.create_task(ws.recv())
+        # updated = asyncio.create_task(update.wait())
+        async for message in ws:
+            # message = json.loads(message)
+            # Wait for a new message from our client, or an update to the state (from another client).
+            # Handle whichever happens first.
+            # done, _ = await asyncio.wait({recv, updated}, return_when=asyncio.FIRST_COMPLETED)
+            # for task in done:
+            #     if task is recv:
+            #         t = time.time()
+            #         # Uncomment to see what we got from the client:
+            #         print(task.result())
+            #         message = json.loads(task.result())
+            print(message)
+            state[json.loads(message)["type"]] = message
+                    # print(f"Got message from {request.ip}: {message}")
+                    # Got a message from the client; update the state.
+                    # for param, delta in message.items():
+                    #     param = int(param)
+                    #     state[param] = max(MIN_VALUE, min(state[param] + delta, MAX_VALUE))
+                        # Clients update their local state immediately:
+                        # client_state[param] += delta
+                    # state = message
+                    # Signal to all coroutines that they should send updates to their clients.
+                    # update.set()
+                    # update.clear()
+                    # recv = asyncio.create_task(ws.recv())
+                    # TODO: Only broadcast to others
+            if len(clients) > 1:
+                await asyncio.wait([client.send(message) for client in clients if client is not ws])
+                # elif task is updated:
+                    # State updated.
+                    # Send mode if it changed.
+                    # if mode != client_mode:
+                        # client_mode = mode
+                        # await ws.send(json.dumps(mode))
+                    # Compute the diff with the client's local state, and send the necessary updates.
+                    # diff = [[i, v] for i, v in enumerate(state) if v != client_state[i]]
+                    # Don't send a message if nothing needs to be updated.  
+                    # if diff:
+                        # client_state[:] = state
+                        # await ws.send(json.dumps(diff))
+                    # await ws.send(json.dumps(state))
+                    # updated = asyncio.create_task(update.wait())
+    finally:
+        clients.remove(ws)
 
-# app.static("/", "index.html")
-app.static("/uploads", upload_dir)
+app.static("/", "../editor/dist/index.html")
+app.static("/assets", "../editor/dist/assets", name="assets")
+app.static("/uploads", upload_dir, name="uploads")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, dev=True)
