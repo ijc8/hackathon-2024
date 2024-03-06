@@ -1,6 +1,7 @@
 html, body {
     margin: 0;
     padding: 0;
+    background-color: white;
 }
 body {
     height: 100vh;
@@ -9,6 +10,8 @@ body {
     height: 100%;
     display: flex;
     flex-direction: column;
+    max-width: 720px;
+    margin: auto;
 }
 .download {
     float: right;
@@ -39,31 +42,32 @@ video {
     display: block;
 }
 #transcript, #editor {
-    margin: 0 15px;
+    margin: 15px 0;
     /* margin-top: 70px; */
     /* margin-bottom: 5em; */
     white-space: pre-wrap;
     line-height: 2em;
-    max-width: 600px;
     color: #999;
     user-select: none;
     font-size: larger;
     border: 1px dashed gray;
+    overflow-y: auto;
+    min-height: 3em;
+    flex: 1;
+    padding-right: 2em;
 }
 #transcript {
     padding-bottom: 1em;
     margin-bottom: 1em;
     border-bottom: 1px solid black;
     color: gray;
-    max-height: 50%;
-    overflow-y: scroll;
 }
 #editor {
-    height: 100%;
     color: black;
 }
 #tmp {
     color: gray;
+    border: 1px dotted gray;
 }
 /* #transcript.status {
     background-color: #333;

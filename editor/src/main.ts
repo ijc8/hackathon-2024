@@ -7,7 +7,6 @@ console.log(role)
 
 const playerHTML = `
 <video loop muted></video><br>
-<button id="fullscreen">Fullscreen</button>
 `
 
 const editorHTML = `
@@ -15,13 +14,13 @@ const editorHTML = `
     <button id="record">Record</button>
     <input id="upload" type="file" value="Upload" />
 </div>
-<div>
+<div id="editor-controls">
     <button id="shuffle">Shuffle</button>
     <button id="clear">Clear</button>
     <button id="reset">Reset</button>
     <button id="sort">Sort</button>
-    <button id="remove-words">Remove words</button>
-    <button id="remove-spaces">Remove spaces</button>
+    <button id="remove-words">No words</button>
+    <button id="remove-spaces">No spaces</button>
     <button id="forget">Forget</button>
 </div>
 <div id="examples">
@@ -37,6 +36,7 @@ const editorHTML = `
 
 document.querySelector("#app")!.innerHTML = `
 <div id="status"></div>
+<button id="fullscreen">Fullscreen</button>
 ${role !== "editor" ? playerHTML : ""}
 ${role !== "player" ? editorHTML : ""}
 `
@@ -584,9 +584,13 @@ if (role !== "player") {
     }
 }
 
-if (role !== "editor") {
-    onClick("#fullscreen", () => video.requestFullscreen())
-}
+onClick("#fullscreen", () => {
+    if (role === "player") {
+        video.requestFullscreen()
+    } else {
+        document.body.requestFullscreen()
+    }
+})
 
 async function uploadVideo(blob: Blob) {
     // Get transcription & alignment from server.
