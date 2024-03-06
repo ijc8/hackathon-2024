@@ -1,7 +1,7 @@
 html, body {
     margin: 0;
     padding: 0;
-    background-color: white;
+    background-color: rgb(243, 243, 200);
 }
 body {
     height: 100vh;
@@ -91,7 +91,7 @@ video {
 } */
 .block {
     /* border: 1px solid black; */
-    border: 1px solid white;
+    border: 1px solid transparent;
 }
 .block.dragover {
     background-color: red !important;
