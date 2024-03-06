@@ -5,6 +5,11 @@ html, body {
 body {
     height: 100vh;
 }
+#app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
 .download {
     float: right;
     background: #999;

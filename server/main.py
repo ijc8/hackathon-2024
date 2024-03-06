@@ -110,6 +110,7 @@ async def websocket(request, ws):
                 update.set()
                 update.clear()
                 recv = asyncio.create_task(ws.recv())
+                # TODO: Only broadcast to others
             elif task is updated:
                 # State updated.
                 # Send mode if it changed.

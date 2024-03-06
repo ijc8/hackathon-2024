@@ -11,15 +11,19 @@ const playerHTML = `
 `
 
 const editorHTML = `
-<button id="record">Record</button>
-<input id="upload" type="file" value="Upload" />
-<button id="shuffle">Shuffle</button>
-<button id="clear">Clear</button>
-<button id="reset">Reset</button>
-<button id="sort">Sort</button>
-<button id="remove-words">Remove words</button>
-<button id="remove-spaces">Remove spaces</button>
-<button id="forget">Forget</button>
+<div>
+    <button id="record">Record</button>
+    <input id="upload" type="file" value="Upload" />
+</div>
+<div>
+    <button id="shuffle">Shuffle</button>
+    <button id="clear">Clear</button>
+    <button id="reset">Reset</button>
+    <button id="sort">Sort</button>
+    <button id="remove-words">Remove words</button>
+    <button id="remove-spaces">Remove spaces</button>
+    <button id="forget">Forget</button>
+</div>
 <div id="examples">
   Examples:
   <button>sentence</button>
@@ -37,15 +41,31 @@ ${role !== "editor" ? playerHTML : ""}
 ${role !== "player" ? editorHTML : ""}
 `
 
+interface VideoMessage {
+    type: "video"
+    url: string
+}
+
+interface BlocksMessage {
+    type: "blocks"
+    blocks: Block[]
+}
+
+type Message = VideoMessage | BlocksMessage
+
 const socket = new WebSocket(`ws://localhost:8000/ws`)
 socket.onopen = () => {
     console.log("socket open")
 }
 socket.onmessage = e => {
-    const data = JSON.parse(e.data)
+    const data: Message = JSON.parse(e.data)
     console.log("socket message", data)
-    // Assumes last arg is `remoteControlled`
-    eval(data.fn)(...data.args, true)
+    if (data.type === "video") {
+        loadProcessedVideo(data.url, true)
+    } else if (data.type === "blocks") {
+        editorBlocks = data.blocks
+        updateEditor(true)
+    }
 }
 socket.onerror = () => {
     console.log("socket error")
@@ -59,6 +79,7 @@ const statusEl = document.querySelector("#status") as HTMLDivElement
 const transcriptEl = document.getElementById("transcript") as HTMLDivElement
 const editorEl = document.getElementById("editor") as HTMLDivElement
 
+let blockId = 0
 let currentBlock: Block
 
 const phones = document.createElement("div")
@@ -160,7 +181,7 @@ interface Phone {
 }
 
 interface Word {
-    case: "success" | "not-found-in-transcript"
+    case: "success" | "not-found-in-transcript" | "not-found-in-audio"
     word: string
     alignedWord: string
     start: number
@@ -176,6 +197,7 @@ interface Result {
 }
 
 interface Block {
+    id: number
     source: number // index into `transcriptBlocks`
     text: string
     start: number
@@ -196,7 +218,7 @@ function generateBlocks(ret: Result, duration: number): Block[] {
     let currentTime = 0
     
     for (const wd of wds) {
-        if (wd.case == "not-found-in-transcript") {
+        if (wd.case === "not-found-in-transcript" || wd.case === "not-found-in-audio") {
             // TODO: does this case actually happen? what should we do with this?
             console.log("unexpected case", wd)
             continue
@@ -220,7 +242,7 @@ function generateBlocks(ret: Result, duration: number): Block[] {
     blocks.push({ text, start: currentTime, end: duration })
     console.log(blocks)
     return blocks.map((a, index) => {
-        const b = { ...a, source: index }
+        const b = { ...a, source: index, id: 0 }
         b.text = b.text.replace(" ", "⎵")
         return b
     })
@@ -244,20 +266,17 @@ function insertBlock(block: Block, index: number) {
     // (This is important for handling rearrangement gracefully during playback.)
     editorBlocks.splice(index, 0, { ...block })
     updateEditor()
-    if (editorBlocks.length === 1) {
-        // No words present; start playing.
-        play()
-    }
-    renderEditor(editorBlocks)
 }
 
 
-function updateEditor() {
+function updateEditor(remoteControlled=false) {
     if (!playing) {
         // Not playing (due to empty editor).
         play()
     }
-    socket.send(JSON.stringify(editorBlocks))
+    if (!remoteControlled) {
+        socket.send(JSON.stringify({ type: "blocks", blocks: editorBlocks }))
+    }
     renderEditor(editorBlocks)
 }
 
@@ -399,7 +418,8 @@ async function play() {
     playing = true
     video?.play()
     while (editorBlocks.length > 0) {
-        const nextIndex = (editorBlocks.indexOf(currentBlock) + 1) % editorBlocks.length
+        const currentIndex = editorBlocks.findIndex(b => b.id === currentBlock.id)
+        const nextIndex = (currentIndex + 1) % editorBlocks.length
         const nextBlock = editorBlocks[nextIndex]
         // console.log(blocks.indexOf(currentBlock), blocks.indexOf(nextBlock))
         const duration = nextBlock.end - nextBlock.start
@@ -417,7 +437,9 @@ async function play() {
                 video.currentTime = nextBlock.start
                 if (video.paused) video.play()
             }
-            highlightWord(nextBlock, nextBlock.start)
+            if (role !== "player") {
+                highlightWord(nextBlock, nextBlock.start)
+            }
         }, gap * 1000)
         nextTime += duration
         await sleep(gap - 0.05)
@@ -425,7 +447,7 @@ async function play() {
     }
     playing = false
     window.clearTimeout(timeoutHandle)
-    video.pause()
+    video?.pause()
 }
 
 
@@ -447,6 +469,11 @@ function onClick(selector: string, cb: () => void) {
     document.querySelector<HTMLButtonElement>(selector)!.onclick = cb
 }
 
+function resetEditor() {
+    editorBlocks = transcriptBlocks.map(b => ({ ...b, id: blockId++ }))
+    updateEditor()
+}
+
 if (role !== "player") {
     onClick("#shuffle", () => {
         shuffle(editorBlocks)
@@ -460,14 +487,12 @@ if (role !== "player") {
     }
 
     onClick("#clear", () => {
+        blockId = 0
         editorBlocks = []
         updateEditor()
     })
 
-    onClick("#reset", () => {
-        editorBlocks = transcriptBlocks.map(b => ({ ...b }))
-        updateEditor()
-    })
+    onClick("#reset", resetEditor)
 
     onClick("#sort", () => {
         editorBlocks.sort((a, b) => a.text.localeCompare(b.text) )
@@ -578,11 +603,9 @@ async function loadVideo(blob: Blob, result: Result) {
     const data = await blob.arrayBuffer()
     buffer = await audioContext.decodeAudioData(data)
     transcriptBlocks = generateBlocks(result, buffer.duration)
-    editorBlocks = transcriptBlocks.map(b => ({ ...b }))
     renderTranscript()
-    renderEditor(editorBlocks)
     if (video) video.src = URL.createObjectURL(blob)
-    play()
+    resetEditor()
     statusEl.textContent = "Ready."
 }
 
@@ -629,15 +652,15 @@ async function loadVideo(blob: Blob, result: Result) {
 //     }
 // }
 
-async function loadProcessedVideo(base: string, remoteControlled=false) {
+async function loadProcessedVideo(url: string, remoteControlled=false) {
     if (!remoteControlled) {
         console.log("loadProcessedVideo send")
-        socket.send(JSON.stringify({ fn: "loadProcessedVideo", args: [base] }))
+        socket.send(JSON.stringify({ type: "video", url }))
     }
-    statusEl.textContent = `Fetching "${base}"...`
+    statusEl.textContent = `Fetching "${url}"...`
     const [video, alignment] = await Promise.all([
-        fetch(`${base}.mp4`).then(r => r.blob()),
-        fetch(`${base}.json`).then(r => r.json())
+        fetch(`${url}.mp4`).then(r => r.blob()),
+        fetch(`${url}.json`).then(r => r.json())
     ])
     loadVideo(video, alignment)
 }
