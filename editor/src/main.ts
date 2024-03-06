@@ -5,13 +5,15 @@ type Role = "player" | "editor" | null
 const role = new URL(window.location.toString()).searchParams.get("role") as Role
 console.log(role)
 
-const playerHTML = `<video loop muted></video><br>`
+const playerHTML = `
+<video loop muted></video><br>
+<button id="fullscreen">Fullscreen</button>
+`
 
 const editorHTML = `
 <button id="record">Record</button>
 <input id="upload" type="file" value="Upload" />
 <button id="shuffle">Shuffle</button>
-<button id="fullscreen">Fullscreen</button>
 <button id="clear">Clear</button>
 <button id="reset">Reset</button>
 <button id="sort">Sort</button>
@@ -40,7 +42,10 @@ socket.onopen = () => {
     console.log("socket open")
 }
 socket.onmessage = e => {
-    console.log("socket message", e.data)
+    const data = JSON.parse(e.data)
+    console.log("socket message", data)
+    // Assumes last arg is `remoteControlled`
+    eval(data.fn)(...data.args, true)
 }
 socket.onerror = () => {
     console.log("socket error")
@@ -392,7 +397,7 @@ async function play() {
     currentBlock = editorBlocks[editorBlocks.length - 1]
     let timeoutHandle = 0
     playing = true
-    video.play()
+    video?.play()
     while (editorBlocks.length > 0) {
         const nextIndex = (editorBlocks.indexOf(currentBlock) + 1) % editorBlocks.length
         const nextBlock = editorBlocks[nextIndex]
@@ -401,13 +406,17 @@ async function play() {
         const source = new AudioBufferSourceNode(audioContext, { buffer })
         // console.log("duration", nextBlock.start, nextBlock.end, duration)
         source.start(nextTime, nextBlock.start, duration)
-        source.connect(audioContext.destination)
+        if (role !== "editor") {
+            source.connect(audioContext.destination)
+        }
         const gap = nextTime - audioContext.currentTime
         const prevTimeoutHandle = timeoutHandle
         timeoutHandle = window.setTimeout(() => {
             window.clearTimeout(prevTimeoutHandle) // fix for race condition with small gaps
-            video.currentTime = nextBlock.start
-            if (video.paused) video.play()
+            if (video) {
+                video.currentTime = nextBlock.start
+                if (video.paused) video.play()
+            }
             highlightWord(nextBlock, nextBlock.start)
         }, gap * 1000)
         nextTime += duration
@@ -438,54 +447,64 @@ function onClick(selector: string, cb: () => void) {
     document.querySelector<HTMLButtonElement>(selector)!.onclick = cb
 }
 
-onClick("#shuffle", () => {
-    shuffle(editorBlocks)
-    updateEditor()
-})
+if (role !== "player") {
+    onClick("#shuffle", () => {
+        shuffle(editorBlocks)
+        updateEditor()
+    })
 
-onClick("#fullscreen", () => video.requestFullscreen())
+    const uploadButton = document.querySelector("#upload") as HTMLInputElement
+    uploadButton.onchange = e => {
+        console.log(e)
+        uploadVideo(uploadButton.files![0])
+    }
 
-const uploadButton = document.querySelector("#upload") as HTMLInputElement
-uploadButton.onchange = selectVideo
+    onClick("#clear", () => {
+        editorBlocks = []
+        updateEditor()
+    })
 
-onClick("#clear", () => {
-    editorBlocks = []
-    updateEditor()
-})
+    onClick("#reset", () => {
+        editorBlocks = transcriptBlocks.map(b => ({ ...b }))
+        updateEditor()
+    })
 
-onClick("#reset", () => {
-    editorBlocks = transcriptBlocks.map(b => ({ ...b }))
-    updateEditor()
-})
+    onClick("#sort", () => {
+        editorBlocks.sort((a, b) => a.text.localeCompare(b.text) )
+        updateEditor()
+    })
 
-onClick("#sort", () => {
-    editorBlocks.sort((a, b) => a.text.localeCompare(b.text) )
-    updateEditor()
-})
+    onClick("#remove-words", () => {
+        editorBlocks = editorBlocks.filter(b => !b.word)
+        updateEditor()
+    })
 
-onClick("#remove-words", () => {
-    editorBlocks = editorBlocks.filter(b => !b.word)
-    updateEditor()
-})
+    onClick("#remove-spaces", () => {
+        editorBlocks = editorBlocks.filter(b => b.word)
+        updateEditor()
+    })
 
-onClick("#remove-spaces", () => {
-    editorBlocks = editorBlocks.filter(b => b.word)
-    updateEditor()
-})
+    onClick("#forget", () => {
+        // Randomly forget blocks.
+        editorBlocks = editorBlocks.filter(() => Math.random() < 0.5)
+        updateEditor()
+    })
 
-onClick("#forget", () => {
-    // Randomly forget blocks.
-    editorBlocks = editorBlocks.filter(() => Math.random() < 0.5)
-    updateEditor()
-})
+    for (const el of document.querySelectorAll<HTMLButtonElement>("#examples button")) {
+        el.onclick = () => loadProcessedVideo(`examples/${el.textContent!}`)
+    }
 
-for (const el of document.querySelectorAll<HTMLButtonElement>("#examples button")) {
-    el.onclick = () => loadExample(el.textContent!)
+    const recordButton = document.querySelector<HTMLButtonElement>("#record")!
+
+    if (navigator.mediaDevices) {
+        recordButton.onclick = record
+    } else {
+        recordButton.disabled = true
+    }
 }
 
-function selectVideo(e: Event) {
-    console.log(e)
-    uploadVideo(uploadButton.files![0])
+if (role !== "editor") {
+    onClick("#fullscreen", () => video.requestFullscreen())
 }
 
 async function uploadVideo(blob: Blob) {
@@ -522,7 +541,6 @@ async function uploadVideo(blob: Blob) {
 
 async function loadVideo(blob: Blob, result: Result) {
     // TODO clean up
-    socket.send(blob)
     statusEl.textContent = "Decoding..."
     const data = await blob.arrayBuffer()
     buffer = await audioContext.decodeAudioData(data)
@@ -530,7 +548,7 @@ async function loadVideo(blob: Blob, result: Result) {
     editorBlocks = transcriptBlocks.map(b => ({ ...b }))
     renderTranscript()
     renderEditor(editorBlocks)
-    video.src = URL.createObjectURL(blob)
+    if (video) video.src = URL.createObjectURL(blob)
     play()
     statusEl.textContent = "Ready."
 }
@@ -578,11 +596,15 @@ async function loadVideo(blob: Blob, result: Result) {
 //     }
 // }
 
-async function loadExample(name: string) {
-    statusEl.textContent = `Fetching "${name}"...`
+async function loadProcessedVideo(base: string, remoteControlled=false) {
+    if (!remoteControlled) {
+        console.log("loadProcessedVideo send")
+        socket.send(JSON.stringify({ fn: "loadProcessedVideo", args: [base] }))
+    }
+    statusEl.textContent = `Fetching "${base}"...`
     const [video, alignment] = await Promise.all([
-        fetch(`examples/${name}.mp4`).then(r => r.blob()),
-        fetch(`examples/${name}.json`).then(r => r.json())
+        fetch(`${base}.mp4`).then(r => r.blob()),
+        fetch(`${base}.json`).then(r => r.json())
     ])
     loadVideo(video, alignment)
 }
@@ -676,12 +698,4 @@ function record() {
     .catch((err) => {
         console.error(`The following error occurred: ${err}`)
     })
-}
-
-const recordButton = document.querySelector<HTMLButtonElement>("#record")!
-
-if (navigator.mediaDevices) {
-    recordButton.onclick = record
-} else {
-    recordButton.disabled = true
 }

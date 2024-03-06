@@ -1,10 +1,12 @@
 import asyncio
 import json
+import datetime
 import time
 import os
 import sys
-
 import tempfile
+
+import httpx
 
 from sanic import Sanic
 from sanic.request import Request
@@ -13,6 +15,7 @@ from sanic.response import text
 app = Sanic("Book")
 
 upload_dir = os.path.join(sys.path[0], "uploads")
+os.makedirs(upload_dir, exist_ok=True)
 
 @app.post("sensors")
 async def sensors(request):
@@ -27,7 +30,9 @@ async def transcribe(request):
     file = request.files.get("video")
     print("received video", len(file.body))
     with tempfile.TemporaryDirectory() as tmp_dir:
-        video_path = os.path.join(tmp_dir, "v")
+        name = datetime.datetime.utcnow().isoformat()
+        # NOTE: We're assuming we get an mp4 from the client.
+        video_path = os.path.join(upload_dir, name + ".mp4")
         audio_path = os.path.join(tmp_dir, "a.wav")
         with open(video_path, "wb") as video_file:
             video_file.write(file.body)
@@ -39,9 +44,30 @@ async def transcribe(request):
             "-m", "/home/ian/GT/whisper.cpp/models/ggml-base.en.bin", "-f", audio_path, "-nt",
             stdout=asyncio.subprocess.PIPE
         )
-        stdout, _ = await proc.communicate()
-        print("whisper finished:", stdout)
-    return text(stdout.decode())
+        transcript, _ = await proc.communicate()
+        print("whisper finished:", transcript)
+        async with httpx.AsyncClient() as client:
+            print("sending request")
+            r = await client.post(
+                "http://localhost:8765/transcriptions",
+                files={"audio": file.body, "transcript": transcript},
+            )
+            assert r.status_code == 302
+            location = r.headers["location"]
+            status_url = f"http://localhost:8765{location}/status.json"
+            status = "STARTED"
+            print(status_url)
+            while status in ["STARTED", "ENCODING", "TRANSCRIBING", "ALIGNING"]:
+                r = await client.get(status_url)
+                print(r.json())
+                status = r.json()["status"]
+            assert status == "OK"
+            r = await client.get(f"http://localhost:8765{location}/align.json")
+            alignment = r.json()
+        align_path = os.path.join(upload_dir, name + ".json")
+        with open(align_path, "w") as align_file:
+            json.dump(alignment, align_file)
+    return text(name)
 
 
 
@@ -57,9 +83,9 @@ async def websocket(request, ws):
     # client_state = state[:]
     print("New websocket connection from", request.ip)
     # New connection: send the current state.
-    await ws.send(json.dumps({
-        "state": state,
-    }))
+    # await ws.send(json.dumps({
+    #     "state": state,
+    # }))
     recv = asyncio.create_task(ws.recv())
     updated = asyncio.create_task(update.wait())
     while True:
@@ -71,7 +97,7 @@ async def websocket(request, ws):
                 t = time.time()
                 # Uncomment to see what we got from the client:
                 print(task.result())
-                # message = json.loads(task.result())
+                message = json.loads(task.result())
                 # print(f"Got message from {request.ip}: {message}")
                 # Got a message from the client; update the state.
                 # for param, delta in message.items():
@@ -79,7 +105,7 @@ async def websocket(request, ws):
                 #     state[param] = max(MIN_VALUE, min(state[param] + delta, MAX_VALUE))
                     # Clients update their local state immediately:
                     # client_state[param] += delta
-                # state = message
+                state = message
                 # Signal to all coroutines that they should send updates to their clients.
                 update.set()
                 update.clear()
@@ -100,6 +126,7 @@ async def websocket(request, ws):
                 updated = asyncio.create_task(update.wait())
 
 # app.static("/", "index.html")
+app.static("/uploads", upload_dir)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, dev=True)
