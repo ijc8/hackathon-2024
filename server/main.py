@@ -51,7 +51,7 @@ async def transcribe(request):
         async def reencode():
             # Re-encode video for fast decode & seeking (critical on mobile)
             video_path = os.path.join(upload_dir, name + ".mp4")
-            proc = await asyncio.create_subprocess_exec("/usr/bin/ffmpeg", "-i", tmp_video_path, "-tune", "fastdecode", "-g", "1", video_path)
+            proc = await asyncio.create_subprocess_exec("/usr/bin/ffmpeg", "-i", tmp_video_path, "-tune", "fastdecode", "-g", "1", "-crf", "30", video_path)
             ret = await proc.wait()
         async def transcribe_and_align():
             # Extract audio for whisper.cpp
@@ -91,27 +91,17 @@ async def transcribe(request):
         await asyncio.wait([reencode(), transcribe_and_align()])
     return text(name)
 
-
-
-# TODO multi-client thing
-MIN_VALUE, MAX_VALUE = 0, 127
 state = {}
-# update = asyncio.Event()
 clients = []
 
 @app.websocket("/ws")
 async def websocket(request, ws):
     global state
-    # A coroutine is spawned for each connected client.
-    # client_state = state[:]
     print("New websocket connection from", request.ip)
-    # New connection: send the current state.
-    # await ws.send(json.dumps({
-    #     "state": state,
-    # }))
     try:
         clients.append(ws)
         if state:
+            # New connection: send the current state.
             await asyncio.wait([ws.send(message) for message in state.values()])
         async for message in ws:
             print(message)
@@ -127,4 +117,4 @@ app.static("/uploads", upload_dir, name="uploads")
 app.static("/examples", "../editor/public/examples", name="examples")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, dev=True)
+    app.run(host="0.0.0.0", port=8000) #, dev=True)
