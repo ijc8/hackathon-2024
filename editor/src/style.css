@@ -17,6 +17,7 @@ button, .upload-label {
     /* border-bottom: 1px solid black; */
     font-weight: 550;
     text-decoration: underline;
+    cursor: pointer;
 }
 body {
     height: 100vh;
