@@ -18,6 +18,7 @@ button, .upload-label {
     font-weight: 550;
     text-decoration: underline;
     cursor: pointer;
+    user-select: none;
 }
 body {
     height: 100vh;
@@ -75,10 +76,10 @@ video {
 #transcript {
     padding-bottom: 1em;
     margin-bottom: 1em;
-    border-bottom: 1px solid black;
     color: gray;
 }
 #editor {
+    border-color: black;
     color: black;
 }
 #tmp {
