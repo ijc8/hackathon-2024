@@ -21,7 +21,7 @@ let togglePlay: HTMLButtonElement | null = null
 
 interface VideoMessage {
     type: "video"
-    url: string
+    url: string | null
 }
 
 interface BlocksMessage {
@@ -36,7 +36,14 @@ interface PlaybackMessage {
     id: number
 }
 
-type Message = VideoMessage | BlocksMessage | PlaybackMessage
+interface ParametersMessage {
+    type: "parameters"
+    volume: number
+    speed: number
+    pitch: number
+}
+
+type Message = VideoMessage | BlocksMessage | PlaybackMessage | ParametersMessage
 
 const websocketProtocol = location.protocol === "https:" ? "wss" : "ws"
 let socket: WebSocket
@@ -56,6 +63,8 @@ function setupSocket() {
             updateEditor(true)
         } else if (data.type === "playback") {
             updatePlayback(data.playing, data.looping, data.id, true)
+        } else if (data.type === "parameters") {
+            updateParameters(data)
         }
     }
     socket.onerror = e => {
@@ -391,7 +400,7 @@ function sleep(secs: number) {
 const noSleep = new NoSleep()
 
 let buffer: AudioBuffer
-let gain: GainNode
+let gainNode: GainNode
 let setupPromise: Promise<void>
 async function setup() {
     console.log("setup")
@@ -408,8 +417,18 @@ async function setup() {
     setupPage()
     console.log("audio running", audioContext.outputLatency)
     setupSocket()
-    gain = new GainNode(audioContext, { gain: 0 })
-    gain.connect(audioContext.destination)
+    gainNode = new GainNode(audioContext, { gain: 0 })
+    gainNode.connect(audioContext.destination)
+}
+
+let gain = 1
+function setVolume(frac: number) {
+    gain = frac === 0 ? 0 : 10**(72 * (frac - 1)/20)
+    if (playing) gainNode.gain.value = gain
+}
+
+function updateParameters(parameters: ParametersMessage) {
+    setVolume(parameters.volume)
 }
 
 // TODO: Send information from whichever client is "driving" to keep others (roughly) in sync.
@@ -424,7 +443,7 @@ async function play(remoteControlled=false) {
     currentBlock = editorBlocks[editorBlocks.length - 1]
     let timeoutHandle = 0
     video?.play()
-    gain.gain.value = 1
+    gainNode.gain.value = 1
     if (togglePlay) togglePlay.textContent = "Pause"
     updatePlayback(playing, true, currentBlock?.id, remoteControlled)
     while (playing && editorBlocks.length > 0) {
@@ -439,7 +458,7 @@ async function play(remoteControlled=false) {
         sourceNodes.push(source)
         source.onended = () => sourceNodes.splice(sourceNodes.indexOf(source), 1)
         if (role !== "editor") {
-            source.connect(gain)
+            source.connect(gainNode)
         }
         const gap = nextTime - audioContext.currentTime
         const prevTimeoutHandle = timeoutHandle
@@ -463,7 +482,7 @@ async function play(remoteControlled=false) {
 
 function pause(remoteControlled=false) {
     playing = false
-    gain.gain.value = 0
+    gainNode.gain.value = 0
     for (const node of sourceNodes) {
         node.disconnect()
     }
@@ -519,7 +538,7 @@ function setupPage() {
 
     const editorHTML = `
 <div>
-    <button id="fullscreen">Fullscreen</button>
+    <button id="reset-all">Reset</button>
     <button id="record">Record</button>
     <label for="upload" class="upload-label">Upload</label>
     <input id="upload" type="file" />
@@ -535,10 +554,10 @@ Examples:
 <div id="transcript"></div>
 <div id="editor"></div>
 <div id="editor-controls">
-    <button id="shuffle">Shuffle</button>
     <button id="clear">Clear</button>
     <button id="reset">Reset</button>
     <button id="sort">Sort</button>
+    <button id="shuffle">Shuffle</button>
     <button id="remove-words">No words</button>
     <button id="remove-spaces">No spaces</button>
     <button id="forget">Forget</button>
@@ -558,6 +577,10 @@ ${role !== "player" ? editorHTML : ""}
     statusEl.innerHTML = "Select, upload, or record a video with speech to begin." // "Loading..."
 
     if (role !== "player") {
+        onClick("#reset-all", () => {
+            loadVideo(null)
+        })
+
         onClick("#shuffle", () => {
             shuffle(editorBlocks)
             updateEditor()
@@ -693,24 +716,30 @@ async function uploadVideo(blob: Blob) {
     loadVideo(`uploads/${name}`)
 }
 
-async function loadVideo(url: string, remoteControlled=false) {
+async function loadVideo(url: string | null, remoteControlled=false) {
     // await audioContext.resume()
     if (!remoteControlled) {
         console.log("loadProcessedVideo send")
         socket.send(JSON.stringify({ type: "video", url }))
     }
-    statusEl.textContent = `Fetching "${url}"...`
-    let [videoFile, alignment] = await Promise.all([
-        fetch(`${url}.mp4`).then(r => r.blob()),
-        fetch(`${url}.json`).then(r => r.json())
-    ])
-    statusEl.textContent = "Decoding..."
-    buffer = await audioContext.decodeAudioData(await videoFile.arrayBuffer())
-    transcriptBlocks = generateBlocks(alignment, buffer.duration)
-    renderTranscript()
-    if (video) video.src = URL.createObjectURL(videoFile)
-    if (!remoteControlled) {
-        resetEditor()
+    if (url === null) {
+        if (video) video.src = ""
+        transcriptBlocks = []
+        renderTranscript()
+    } else {
+        statusEl.textContent = `Fetching "${url}"...`
+        let [videoFile, alignment] = await Promise.all([
+            fetch(`${url}.mp4`).then(r => r.blob()),
+            fetch(`${url}.json`).then(r => r.json())
+        ])
+        statusEl.textContent = "Decoding..."
+        buffer = await audioContext.decodeAudioData(await videoFile.arrayBuffer())
+        transcriptBlocks = generateBlocks(alignment, buffer.duration)
+        renderTranscript()
+        if (video) video.src = URL.createObjectURL(videoFile)
+        if (!remoteControlled) {
+            resetEditor()
+        }
     }
     statusEl.textContent = "Ready."
 }
