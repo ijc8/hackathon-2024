@@ -546,10 +546,10 @@ Examples:
 `
 
     document.querySelector("#app")!.innerHTML = `
-    <div id="status"></div>
-    ${role !== "editor" ? playerHTML : ""}
-    ${role !== "player" ? editorHTML : ""}
-    `
+<div id="status"></div>
+${role !== "editor" ? playerHTML : ""}
+${role !== "player" ? editorHTML : ""}
+`
 
     video = document.querySelector<HTMLVideoElement>("video") as HTMLVideoElement
     statusEl = document.querySelector("#status") as HTMLDivElement
@@ -670,13 +670,15 @@ Examples:
         }
     }
 
-    onClick("#fullscreen", () => {
-        if (role === "player") {
-            video.requestFullscreen()
-        } else {
+    if (role === null) {
+        onClick("#fullscreen", () => {
             document.body.requestFullscreen()
-        }
-    })
+        })
+    } else if (role === "player") {
+        video.requestFullscreen()
+    } else if (role === "editor") {
+        document.body.requestFullscreen()
+    }
 }
 
 async function uploadVideo(blob: Blob) {
