@@ -48,44 +48,47 @@ async def transcribe(request):
         tmp_video_path = os.path.join(tmp_dir, "v")
         with open(tmp_video_path, "wb") as video_file:
             video_file.write(file.body)
-        # Re-encode video for fast decode & seeking (critical on mobile)
-        video_path = os.path.join(upload_dir, name + ".mp4")
-        proc = await asyncio.create_subprocess_exec("/usr/bin/ffmpeg", "-i", tmp_video_path, "-tune", "fastdecode", "-g", "1", video_path)
-        ret = await proc.wait()
-        # Extract audio for whisper.cpp
-        audio_path = os.path.join(tmp_dir, "a.wav")
-        # audio_path = os.path.join(upload_dir, name + ".wav")
-        proc = await asyncio.create_subprocess_exec("/usr/bin/ffmpeg", "-i", tmp_video_path, "-ar", "16000", audio_path)
-        ret = await proc.wait()
-        print("ffmpeg returned", ret)
-        proc = await asyncio.create_subprocess_exec(
-            "/home/ian/GT/whisper.cpp/main",
-            "-m", "/home/ian/GT/whisper.cpp/models/ggml-base.en.bin", "-f", audio_path, "-nt",
-            stdout=asyncio.subprocess.PIPE
-        )
-        transcript, _ = await proc.communicate()
-        print("whisper finished:", transcript)
-        async with httpx.AsyncClient() as client:
-            print("sending request")
-            r = await client.post(
-                "http://localhost:8765/transcriptions",
-                files={"audio": file.body, "transcript": transcript},
+        async def reencode():
+            # Re-encode video for fast decode & seeking (critical on mobile)
+            video_path = os.path.join(upload_dir, name + ".mp4")
+            proc = await asyncio.create_subprocess_exec("/usr/bin/ffmpeg", "-i", tmp_video_path, "-tune", "fastdecode", "-g", "1", video_path)
+            ret = await proc.wait()
+        async def transcribe_and_align():
+            # Extract audio for whisper.cpp
+            audio_path = os.path.join(tmp_dir, "a.wav")
+            # audio_path = os.path.join(upload_dir, name + ".wav")
+            proc = await asyncio.create_subprocess_exec("/usr/bin/ffmpeg", "-i", tmp_video_path, "-ar", "16000", audio_path)
+            ret = await proc.wait()
+            print("ffmpeg returned", ret)
+            proc = await asyncio.create_subprocess_exec(
+                "/home/ian/GT/whisper.cpp/main",
+                "-m", "/home/ian/GT/whisper.cpp/models/ggml-base.en.bin", "-f", audio_path, "-nt",
+                stdout=asyncio.subprocess.PIPE
             )
-            assert r.status_code == 302
-            location = r.headers["location"]
-            status_url = f"http://localhost:8765{location}/status.json"
-            status = "STARTED"
-            print(status_url)
-            while status in ["STARTED", "ENCODING", "TRANSCRIBING", "ALIGNING"]:
-                r = await client.get(status_url)
-                print(r.json())
-                status = r.json()["status"]
-            assert status == "OK"
-            r = await client.get(f"http://localhost:8765{location}/align.json")
-            alignment = r.json()
-        align_path = os.path.join(upload_dir, name + ".json")
-        with open(align_path, "w") as align_file:
-            json.dump(alignment, align_file)
+            transcript, _ = await proc.communicate()
+            print("whisper finished:", transcript)
+            async with httpx.AsyncClient() as client:
+                print("sending request")
+                r = await client.post(
+                    "http://localhost:8765/transcriptions",
+                    files={"audio": file.body, "transcript": transcript},
+                )
+                assert r.status_code == 302
+                location = r.headers["location"]
+                status_url = f"http://localhost:8765{location}/status.json"
+                status = "STARTED"
+                print(status_url)
+                while status in ["STARTED", "ENCODING", "TRANSCRIBING", "ALIGNING"]:
+                    r = await client.get(status_url)
+                    print(r.json())
+                    status = r.json()["status"]
+                assert status == "OK"
+                r = await client.get(f"http://localhost:8765{location}/align.json")
+                alignment = r.json()
+            align_path = os.path.join(upload_dir, name + ".json")
+            with open(align_path, "w") as align_file:
+                json.dump(alignment, align_file)
+        await asyncio.wait([reencode(), transcribe_and_align()])
     return text(name)
 
 
