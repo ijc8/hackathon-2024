@@ -19,6 +19,7 @@ const editorHTML = `
     <button id="record">Record</button>
     <label for="upload" class="upload-label">Upload</label>
     <input id="upload" type="file" />
+    <button id="toggle-play">Play</button>
 </div>
 <div id="examples">
   Examples:
@@ -275,10 +276,10 @@ interface BlockSource {
 
 function updateEditor(remoteControlled=false) {
     blockId = editorBlocks.length ? (Math.max(...editorBlocks.map(b => b.id)) + 1) : 0
-    if (!playing) {
-        // Not playing (due to empty editor).
-        play()
-    }
+    // if (!playing) {
+    //     // Not playing (due to empty editor).
+    //     play()
+    // }
     if (!remoteControlled) {
         socket.send(JSON.stringify({ type: "blocks", blocks: editorBlocks }))
     }
@@ -408,28 +409,41 @@ function sleep(secs: number) {
 const noSleep = new NoSleep()
 
 let buffer: AudioBuffer
+let gain: GainNode
+let setupPromise: Promise<void>
 async function setup() {
-    await new Promise<void>(resolve => {
+    console.log("setup")
+    setupPromise = new Promise<void>(resolve => {
         const listener = () => {
             document.removeEventListener("click", listener)
             noSleep.enable()
+            audioContext.resume()
             resolve()
         }
         document.addEventListener("click", listener)
     })
-    await audioContext.resume()
+    await setupPromise
     console.log("audio running", audioContext.outputLatency)
+    gain = new GainNode(audioContext, { gain: 0 })
+    gain.connect(audioContext.destination)
 }
 
+const togglePlay = document.querySelector<HTMLButtonElement>("#toggle-play")
+
+// TODO: Send information from whichever client is "driving" to keep others (roughly) in sync.
 let playing = false
+let sourceNodes: AudioBufferSourceNode[] = []
 async function play() {
     if (playing) return
+    playing = true
+    console.log("play")
     let nextTime = audioContext.currentTime
     currentBlock = editorBlocks[editorBlocks.length - 1]
     let timeoutHandle = 0
-    playing = true
     video?.play()
-    while (editorBlocks.length > 0) {
+    gain.gain.value = 1
+    if (togglePlay) togglePlay.textContent = "Pause"
+    while (playing && editorBlocks.length > 0) {
         const currentIndex = editorBlocks.findIndex(b => b.id === currentBlock.id)
         const nextIndex = (currentIndex + 1) % editorBlocks.length
         const nextBlock = editorBlocks[nextIndex]
@@ -438,8 +452,10 @@ async function play() {
         const source = new AudioBufferSourceNode(audioContext, { buffer })
         // console.log("duration", nextBlock.start, nextBlock.end, duration)
         source.start(nextTime, nextBlock.start, duration)
+        sourceNodes.push(source)
+        source.onended = () => sourceNodes.splice(sourceNodes.indexOf(source), 1)
         if (role !== "editor") {
-            source.connect(audioContext.destination)
+            source.connect(gain)
         }
         const gap = nextTime - audioContext.currentTime
         const prevTimeoutHandle = timeoutHandle
@@ -457,8 +473,18 @@ async function play() {
         await sleep(gap - 0.05)
         currentBlock = nextBlock
     }
-    playing = false
+    pause()
     window.clearTimeout(timeoutHandle)
+}
+
+function pause() {
+    playing = false
+    gain.gain.value = 0
+    for (const node of sourceNodes) {
+        node.disconnect()
+    }
+    sourceNodes = []
+    if (togglePlay) togglePlay.textContent = "Play"
     video?.pause()
 }
 
@@ -526,6 +552,11 @@ if (role !== "player") {
         editorBlocks = editorBlocks.filter(() => Math.random() < 0.5)
         updateEditor()
     })
+
+    togglePlay!.onclick = () => {
+        if (!playing) play()
+        else if (playing) pause()
+    }
 
     for (const el of document.querySelectorAll<HTMLButtonElement>("#examples button")) {
         el.onclick = () => loadVideo(`examples/${el.textContent!}`)
