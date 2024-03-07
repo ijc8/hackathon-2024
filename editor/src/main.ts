@@ -85,67 +85,6 @@ let editorEl: HTMLDivElement
 let blockId = 0
 let currentBlock: Block
 
-const phones = document.createElement("div")
-phones.className = "phones"
-document.body.appendChild(phones)
-
-var cur_phones$: HTMLSpanElement[] = []  // Phoneme elements
-var $active_phone: HTMLSpanElement | null
-
-function render_phones(block: Block) {
-    if (!block.el) { console.assert("nope"); return }
-    cur_phones$ = []
-    phones.innerHTML = ""
-    $active_phone = null
-    
-    phones.style.top = block.el.offsetTop + 15 + "px"
-    phones.style.left = block.el.offsetLeft + "px"
-    
-    // var dur = block.end - block.start
-    // var start_x = block.el.offsetLeft
-
-    for (const ph of block.word!.phones) {
-        var $p = document.createElement("span")
-        $p.className = "phone"
-        $p.textContent = ph.phone.split("_")[0]
-        
-        phones.appendChild($p)
-        cur_phones$.push($p)
-    }
-    
-    var offsetToCenter = (block.el.offsetWidth - phones.offsetWidth) / 2
-    phones.style.left = block.el.offsetLeft + offsetToCenter + "px"
-}
-function highlight_phone(block: Block, t: number) {
-    if(!block || !block.word) {
-        phones.innerHTML = ""
-        return
-    }
-    const cur_wd = block.word
-    var hit
-    var cur_t = cur_wd.start
-    
-    for (const [idx, ph] of cur_wd.phones.entries()) {
-        if(cur_t <= t && cur_t + ph.duration >= t) {
-            hit = idx
-        }
-        cur_t += ph.duration
-    }
-    
-    if(hit) {
-        var $ph = cur_phones$[hit]
-        if($ph != $active_phone) {
-            if($active_phone) {
-                $active_phone.classList.remove("phactive")
-            }
-            if($ph) {
-                $ph.classList.add("phactive")
-            }
-        }
-        $active_phone = $ph
-    }
-}
-
 function highlightWord(nextBlock: Block, t: number) {
     // var t = video.currentTime
     // XXX: O(N); use binary search
@@ -167,12 +106,12 @@ function highlightWord(nextBlock: Block, t: number) {
                 transcriptBlocks[nextBlock.source].el!.classList.add('active')
             }
         }
-        if(nextBlock?.word && nextBlock?.el) {
-            render_phones(nextBlock)
-        }
+        // if(nextBlock?.word && nextBlock?.el) {
+        //     render_phones(nextBlock)
+        // }
         // currentBlock = nextBlock
     // }
-    highlight_phone(currentBlock, t)
+    // highlight_phone(currentBlock, t)
     
     // window.requestAnimationFrame(highlightWord)
 }
@@ -579,6 +518,8 @@ ${role !== "player" ? editorHTML : ""}
     if (role !== "player") {
         onClick("#reset-all", () => {
             loadVideo(null)
+            editorBlocks = []
+            updateEditor()
         })
 
         onClick("#shuffle", () => {
