@@ -7,6 +7,27 @@ html, body {
     font-weight: 450;
     font-style: normal;
 }
+.placeholder {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.placeholder h1 {
+    font-size: 5em;
+    margin: 0;
+}
+.placeholder h2 {
+    font-size: 1.85em;
+    margin: 0;
+    margin-top: 1em;
+}
+.placeholder h3 {
+    font-size: 1.3em;
+    margin: 0;
+    color: gray;
+}
 input[type="file"] {
     display: none;
 }

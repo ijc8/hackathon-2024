@@ -8,44 +8,16 @@ type Role = "player" | "editor" | null
 const role = new URL(window.location.toString()).searchParams.get("role") as Role
 console.log(role)
 
-const playerHTML = `
-<video loop muted></video><br>
-<button id="fullscreen">Fullscreen</button>
-`
-
-const editorHTML = `
-<div>
-    <button id="fullscreen">Fullscreen</button>
-    <button id="record">Record</button>
-    <label for="upload" class="upload-label">Upload</label>
-    <input id="upload" type="file" />
-    <button id="toggle-play">Play</button>
-</div>
-<div id="examples">
-  Examples:
-  <button>sentence</button>
-  <button>door</button>
-  <button>numbers</button>
-  <button>solfege</button>
-</div>
-<div id="transcript"></div>
-<div id="editor"></div>
-<div id="editor-controls">
-    <button id="shuffle">Shuffle</button>
-    <button id="clear">Clear</button>
-    <button id="reset">Reset</button>
-    <button id="sort">Sort</button>
-    <button id="remove-words">No words</button>
-    <button id="remove-spaces">No spaces</button>
-    <button id="forget">Forget</button>
-</div>
-`
-
+// Placeholder before first user interaction
 document.querySelector("#app")!.innerHTML = `
-<div id="status"></div>
-${role !== "editor" ? playerHTML : ""}
-${role !== "player" ? editorHTML : ""}
+<div class="placeholder">
+    <h1>Cadence</h1>
+    <h3>by Brittney Allen & Ian Clester</h3>
+    <h2>Press this page to play.</h2>
+</div>
 `
+
+let togglePlay: HTMLButtonElement | null = null
 
 interface VideoMessage {
     type: "video"
@@ -96,10 +68,10 @@ function setupSocket() {
     }
 }
 
-const video = document.querySelector<HTMLVideoElement>("video") as HTMLVideoElement
-const statusEl = document.querySelector("#status") as HTMLDivElement
-const transcriptEl = document.getElementById("transcript") as HTMLDivElement
-const editorEl = document.getElementById("editor") as HTMLDivElement
+let video: HTMLVideoElement
+let statusEl: HTMLDivElement
+let transcriptEl: HTMLDivElement
+let editorEl: HTMLDivElement
 
 let blockId = 0
 let currentBlock: Block
@@ -196,8 +168,6 @@ function highlightWord(nextBlock: Block, t: number) {
     // window.requestAnimationFrame(highlightWord)
 }
 // window.requestAnimationFrame(highlight_word)
-
-statusEl.innerHTML = "Select, upload, or record a video to begin." // "Loading..."
 
 interface Phone {
     duration: number
@@ -435,13 +405,12 @@ async function setup() {
         document.addEventListener("click", listener)
     })
     await setupPromise
+    setupPage()
     console.log("audio running", audioContext.outputLatency)
     setupSocket()
     gain = new GainNode(audioContext, { gain: 0 })
     gain.connect(audioContext.destination)
 }
-
-const togglePlay = document.querySelector<HTMLButtonElement>("#toggle-play")
 
 // TODO: Send information from whichever client is "driving" to keep others (roughly) in sync.
 let playing = false
@@ -542,125 +511,173 @@ function resetEditor() {
     updateEditor()
 }
 
-if (role !== "player") {
-    onClick("#shuffle", () => {
-        shuffle(editorBlocks)
-        updateEditor()
-    })
+function setupPage() {
+    const playerHTML = `
+<video loop muted></video><br>
+<button id="fullscreen">Fullscreen</button>
+`
 
-    const uploadButton = document.querySelector("#upload") as HTMLInputElement
-    uploadButton.onchange = e => {
-        console.log(e)
-        uploadVideo(uploadButton.files![0])
-    }
+    const editorHTML = `
+<div>
+    <button id="fullscreen">Fullscreen</button>
+    <button id="record">Record</button>
+    <label for="upload" class="upload-label">Upload</label>
+    <input id="upload" type="file" />
+    <button id="toggle-play">Play</button>
+</div>
+<div id="examples">
+Examples:
+<button>sentence</button>
+<button>door</button>
+<button>numbers</button>
+<button>solfege</button>
+</div>
+<div id="transcript"></div>
+<div id="editor"></div>
+<div id="editor-controls">
+    <button id="shuffle">Shuffle</button>
+    <button id="clear">Clear</button>
+    <button id="reset">Reset</button>
+    <button id="sort">Sort</button>
+    <button id="remove-words">No words</button>
+    <button id="remove-spaces">No spaces</button>
+    <button id="forget">Forget</button>
+</div>
+`
 
-    onClick("#clear", () => {
-        blockId = 0
-        editorBlocks = []
-        updateEditor()
-    })
+    document.querySelector("#app")!.innerHTML = `
+    <div id="status"></div>
+    ${role !== "editor" ? playerHTML : ""}
+    ${role !== "player" ? editorHTML : ""}
+    `
 
-    onClick("#reset", resetEditor)
+    video = document.querySelector<HTMLVideoElement>("video") as HTMLVideoElement
+    statusEl = document.querySelector("#status") as HTMLDivElement
+    transcriptEl = document.getElementById("transcript") as HTMLDivElement
+    editorEl = document.getElementById("editor") as HTMLDivElement
+    statusEl.innerHTML = "Select, upload, or record a video with speech to begin." // "Loading..."
 
-    onClick("#sort", () => {
-        editorBlocks.sort((a, b) => a.text.localeCompare(b.text) )
-        updateEditor()
-    })
+    if (role !== "player") {
+        onClick("#shuffle", () => {
+            shuffle(editorBlocks)
+            updateEditor()
+        })
 
-    onClick("#remove-words", () => {
-        editorBlocks = editorBlocks.filter(b => !b.word)
-        updateEditor()
-    })
+        const uploadButton = document.querySelector("#upload") as HTMLInputElement
+        uploadButton.onchange = e => {
+            console.log(e)
+            uploadVideo(uploadButton.files![0])
+        }
 
-    onClick("#remove-spaces", () => {
-        editorBlocks = editorBlocks.filter(b => b.word)
-        updateEditor()
-    })
+        onClick("#clear", () => {
+            blockId = 0
+            editorBlocks = []
+            updateEditor()
+        })
 
-    onClick("#forget", () => {
-        // Randomly forget blocks.
-        editorBlocks = editorBlocks.filter(() => Math.random() < 0.5)
-        updateEditor()
-    })
+        onClick("#reset", resetEditor)
 
-    togglePlay!.onclick = () => {
-        if (!playing) play()
-        else if (playing) pause()
-    }
+        onClick("#sort", () => {
+            editorBlocks.sort((a, b) => a.text.localeCompare(b.text) )
+            updateEditor()
+        })
 
-    for (const el of document.querySelectorAll<HTMLButtonElement>("#examples button")) {
-        el.onclick = () => loadVideo(`examples/${el.textContent!}`)
-    }
+        onClick("#remove-words", () => {
+            editorBlocks = editorBlocks.filter(b => !b.word)
+            updateEditor()
+        })
 
-    const recordButton = document.querySelector<HTMLButtonElement>("#record")!
+        onClick("#remove-spaces", () => {
+            editorBlocks = editorBlocks.filter(b => b.word)
+            updateEditor()
+        })
 
-    function record() {
-        console.log("getUserMedia supported.")
-        
-        const constraints = { video: true, audio: true }
-        let chunks: Blob[] = []
+        onClick("#forget", () => {
+            // Randomly forget blocks.
+            editorBlocks = editorBlocks.filter(() => Math.random() < 0.5)
+            updateEditor()
+        })
 
-        navigator.mediaDevices
-        .getUserMedia(constraints)
-        .then(stream => {
-            const mediaRecorder = new MediaRecorder(stream)
+        togglePlay = document.querySelector<HTMLButtonElement>("#toggle-play")
+        togglePlay!.onclick = () => {
+            if (!playing) play()
+            else if (playing) pause()
+        }
 
-            statusEl.textContent = "Ready to record."
-            recordButton.onclick = () => {
-                if (mediaRecorder.state === "inactive") {
-                    if (video) video.srcObject = stream
-                    mediaRecorder.start()
-                    console.log(mediaRecorder.state)
-                    console.log("recorder started")
-                    recordButton.style.background = "red"
-                    recordButton.style.color = "black"
-                    statusEl.textContent = "Recording..."
-                } else {
-                    mediaRecorder.stop()
-                    console.log(mediaRecorder.state)
-                    console.log("recorder stopped")
-                    recordButton.style.background = ""
-                    recordButton.style.color = ""
-                    statusEl.textContent = "Stopped recording."
+        for (const el of document.querySelectorAll<HTMLButtonElement>("#examples button")) {
+            el.onclick = () => loadVideo(`examples/${el.textContent!}`)
+        }
+
+        const recordButton = document.querySelector<HTMLButtonElement>("#record")!
+
+        function record() {
+            console.log("getUserMedia supported.")
+            
+            const constraints = { video: true, audio: true }
+            let chunks: Blob[] = []
+
+            navigator.mediaDevices
+            .getUserMedia(constraints)
+            .then(stream => {
+                const mediaRecorder = new MediaRecorder(stream)
+
+                statusEl.textContent = "Ready to record."
+                recordButton.onclick = () => {
+                    if (mediaRecorder.state === "inactive") {
+                        if (video) video.srcObject = stream
+                        mediaRecorder.start()
+                        console.log(mediaRecorder.state)
+                        console.log("recorder started")
+                        recordButton.style.background = "red"
+                        recordButton.style.color = "black"
+                        statusEl.textContent = "Recording..."
+                    } else {
+                        mediaRecorder.stop()
+                        console.log(mediaRecorder.state)
+                        console.log("recorder stopped")
+                        recordButton.style.background = ""
+                        recordButton.style.color = ""
+                        statusEl.textContent = "Stopped recording."
+                    }
                 }
-            }
 
-            mediaRecorder.onstop = _e => {
-                console.log("data available after MediaRecorder.stop() called.")
-                // const video = document.createElement("video")
-                // document.body.prepend(video)
-                // video.controls = true
-                const blob = new Blob(chunks, { type: "video/mp4" })
-                chunks = []
-                if (video) video.srcObject = null
-                // video.src = URL.createObjectURL(blob)
-                console.log("recorder stopped")
-                uploadVideo(blob)
-            }
+                mediaRecorder.onstop = _e => {
+                    console.log("data available after MediaRecorder.stop() called.")
+                    // const video = document.createElement("video")
+                    // document.body.prepend(video)
+                    // video.controls = true
+                    const blob = new Blob(chunks, { type: "video/mp4" })
+                    chunks = []
+                    if (video) video.srcObject = null
+                    // video.src = URL.createObjectURL(blob)
+                    console.log("recorder stopped")
+                    uploadVideo(blob)
+                }
 
-            mediaRecorder.ondataavailable = e => {
-                chunks.push(e.data)
-            }
-        })
-        .catch((err) => {
-            console.error(`The following error occurred: ${err}`)
-        })
+                mediaRecorder.ondataavailable = e => {
+                    chunks.push(e.data)
+                }
+            })
+            .catch((err) => {
+                console.error(`The following error occurred: ${err}`)
+            })
+        }
+
+        if (navigator.mediaDevices) {
+            recordButton.onclick = record
+        } else {
+            recordButton.disabled = true
+        }
     }
 
-    if (navigator.mediaDevices) {
-        recordButton.onclick = record
-    } else {
-        recordButton.disabled = true
-    }
+    onClick("#fullscreen", () => {
+        if (role === "player") {
+            video.requestFullscreen()
+        } else {
+            document.body.requestFullscreen()
+        }
+    })
 }
-
-onClick("#fullscreen", () => {
-    if (role === "player") {
-        video.requestFullscreen()
-    } else {
-        document.body.requestFullscreen()
-    }
-})
 
 async function uploadVideo(blob: Blob) {
     // Get transcription & alignment from server.
@@ -673,49 +690,6 @@ async function uploadVideo(blob: Blob) {
     const name = await resp.text()
     loadVideo(`uploads/${name}`)
 }
-
-// var status_init = false
-// var status_log  = []		// [ status ]
-// var $status_pro
-
-// function render_status(ret) {
-//     if(!status_init) {
-//         // Clobber the $trans div and use it for status updates
-//         $trans.innerHTML = "<h2>transcription in progress</h2>"
-//         $trans.className = "status"
-//         $status_pro = document.createElement("progress")
-//         $status_pro.setAttribute("min", "0")
-//         $status_pro.setAttribute("max", "100")
-//         $status_pro.value = 0
-//         $trans.appendChild($status_pro)
-        
-//         status_init = true
-//     }
-//     if(ret.status !== "TRANSCRIBING") {
-//         if(ret.percent) {
-//             $status_pro.value = (100*ret.percent)
-//         }
-//     }
-//     else if(ret.percent && (status_log.length == 0 || status_log[status_log.length-1].percent+0.0001 < ret.percent)) {
-//         // New entry
-//         var $entry = document.createElement("div")
-//         $entry.className = "entry"
-//         $entry.textContent = ret.message
-//         ret.$div = $entry
-        
-//         if(ret.percent) {
-//             $status_pro.value = (100*ret.percent)
-//         }
-        
-//         if(status_log.length > 0) {
-//             $trans.insertBefore($entry, status_log[status_log.length-1].$div)
-//         }
-//         else {
-//             $trans.appendChild($entry)
-//         }
-//         status_log.push(ret)
-//     }
-// }
 
 async function loadVideo(url: string, remoteControlled=false) {
     // await audioContext.resume()
