@@ -57,31 +57,43 @@ interface BlocksMessage {
     blocks: Block[]
 }
 
-type Message = VideoMessage | BlocksMessage
+interface PlaybackMessage {
+    type: "playback"
+    playing: boolean
+    looping: boolean
+    id: number
+}
+
+type Message = VideoMessage | BlocksMessage | PlaybackMessage
 
 const websocketProtocol = location.protocol === "https:" ? "wss" : "ws"
-const socket = new WebSocket(`${websocketProtocol}://${location.host}/ws`)
-socket.onopen = () => {
-    console.log("socket open")
-}
-socket.onmessage = e => {
-    // statusEl.innerText = e.data
-    const data: Message = JSON.parse(e.data)
-    console.log("socket message", data)
-    if (data.type === "video") {
-        loadVideo(data.url, true)
-    } else if (data.type === "blocks") {
-        editorBlocks = data.blocks
-        updateEditor(true)
+let socket: WebSocket
+function setupSocket() {
+    socket = new WebSocket(`${websocketProtocol}://${location.host}/ws`)
+    socket.onopen = () => {
+        console.log("socket open")
     }
-}
-socket.onerror = e => {
-    statusEl.innerText = "Connection error"
-    console.log("socket error")
-}
-socket.onclose = e => {
-    statusEl.innerText = "Connection closed"
-    console.log("socket close")
+    socket.onmessage = e => {
+        // statusEl.innerText = e.data
+        const data: Message = JSON.parse(e.data)
+        console.log("socket message", data)
+        if (data.type === "video") {
+            loadVideo(data.url, true)
+        } else if (data.type === "blocks") {
+            editorBlocks = data.blocks
+            updateEditor(true)
+        } else if (data.type === "playback") {
+            updatePlayback(data.playing, data.looping, data.id, true)
+        }
+    }
+    socket.onerror = e => {
+        statusEl.innerText = "Connection error"
+        console.log("socket error")
+    }
+    socket.onclose = e => {
+        statusEl.innerText = "Connection closed"
+        console.log("socket close")
+    }
 }
 
 const video = document.querySelector<HTMLVideoElement>("video") as HTMLVideoElement
@@ -416,14 +428,15 @@ async function setup() {
     setupPromise = new Promise<void>(resolve => {
         const listener = () => {
             document.removeEventListener("click", listener)
-            noSleep.enable()
             audioContext.resume()
+            noSleep.enable()
             resolve()
         }
         document.addEventListener("click", listener)
     })
     await setupPromise
     console.log("audio running", audioContext.outputLatency)
+    setupSocket()
     gain = new GainNode(audioContext, { gain: 0 })
     gain.connect(audioContext.destination)
 }
@@ -433,7 +446,8 @@ const togglePlay = document.querySelector<HTMLButtonElement>("#toggle-play")
 // TODO: Send information from whichever client is "driving" to keep others (roughly) in sync.
 let playing = false
 let sourceNodes: AudioBufferSourceNode[] = []
-async function play() {
+async function play(remoteControlled=false) {
+    await setupPromise
     if (playing) return
     playing = true
     console.log("play")
@@ -443,6 +457,7 @@ async function play() {
     video?.play()
     gain.gain.value = 1
     if (togglePlay) togglePlay.textContent = "Pause"
+    updatePlayback(playing, true, currentBlock?.id, remoteControlled)
     while (playing && editorBlocks.length > 0) {
         const currentIndex = editorBlocks.findIndex(b => b.id === currentBlock.id)
         const nextIndex = (currentIndex + 1) % editorBlocks.length
@@ -473,11 +488,11 @@ async function play() {
         await sleep(gap - 0.05)
         currentBlock = nextBlock
     }
-    pause()
+    pause(remoteControlled)
     window.clearTimeout(timeoutHandle)
 }
 
-function pause() {
+function pause(remoteControlled=false) {
     playing = false
     gain.gain.value = 0
     for (const node of sourceNodes) {
@@ -486,8 +501,23 @@ function pause() {
     sourceNodes = []
     if (togglePlay) togglePlay.textContent = "Play"
     video?.pause()
+    updatePlayback(playing, true, currentBlock.id, remoteControlled)
 }
 
+function updatePlayback(playing_: boolean, _looping: boolean, id: number, remoteControlled=false) {
+    console.log("hm", playing, playing_)
+    if (playing !== playing_) {
+        if (playing_) play(remoteControlled)
+        else pause(remoteControlled)
+    }
+    // TODO looping
+    if (id !== currentBlock?.id) {
+        currentBlock = editorBlocks.find(b => b.id === id)!
+    }
+    if (!remoteControlled) {
+        socket.send(JSON.stringify({ type: "playback", playing: playing_, looping: _looping, id }))
+    }
+}
 
 function shuffle(array: any[]) {
     // https://stackoverflow.com/a/2450976
