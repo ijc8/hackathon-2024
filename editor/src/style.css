@@ -134,6 +134,26 @@ video {
     height: 100%;
     filter: blur(10px);
 }
+#parameters {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin-left: 15px;
+}
+.parameter {
+    border: 1px solid gray;
+    flex: 1;
+    margin: 50px 0;
+    position: relative;
+    width: 6px;
+}
+.parameter-bar {
+    background-color: gray;
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    height: 50%;
+}
 /* #transcript.status {
     background-color: #333;
     color: #fff;

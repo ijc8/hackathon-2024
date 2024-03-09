@@ -25,9 +25,7 @@ async def sensors(request):
     # TODO handle buttons
     message = {
         "type": "parameters",
-        "volume": data["pot1"] / 4095,
-        "speed": data["pot2"] / 4095,
-        "pitch": data["pot3"] / 4095,
+        "knobs": [data[k] / 4095 for k in ["pot1", "pot2", "pot3", "pot4"]],
     }
     message_json = json.dumps(message)
     print(message_json)

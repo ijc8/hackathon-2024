@@ -38,10 +38,11 @@ interface PlaybackMessage {
 
 interface ParametersMessage {
     type: "parameters"
-    volume: number
-    speed: number
-    pitch: number
+    knobs: number[]
 }
+
+// current mapping: volume, (video) brightness, sepia, contrast
+let knobs = [1.0, 0.0, 1.0, 0.5]
 
 type Message = VideoMessage | BlocksMessage | PlaybackMessage | ParametersMessage
 
@@ -64,58 +65,25 @@ function setupSocket() {
         } else if (data.type === "playback") {
             updatePlayback(data.playing, data.looping, data.id, true)
         } else if (data.type === "parameters") {
-            updateParameters(data)
+            knobs = data.knobs
+            updateParameters(true)
         }
     }
-    socket.onerror = e => {
-        statusEl.innerText = "Connection error"
-        console.log("socket error")
+    socket.onerror = () => {
+        setStatus("Connection error!")
     }
-    socket.onclose = e => {
-        statusEl.innerText = "Connection closed"
-        console.log("socket close")
+    socket.onclose = () => {
+        setStatus("Connection closed.")
     }
 }
 
 let video: HTMLVideoElement
-let statusEl: HTMLDivElement
+let statusEl: HTMLDivElement | null = null
 let transcriptEl: HTMLDivElement
 let editorEl: HTMLDivElement
 
 let blockId = 0
 let currentBlock: Block
-
-function highlightWord(nextBlock: Block, t: number) {
-    // var t = video.currentTime
-    // XXX: O(N); use binary search
-    // var hits = blocks.filter(function(x) {
-    //     return (t - x.start) > 0.01 && (x.end - t) > 0.01
-    // })
-    // var nextBlock = hits[hits.length - 1]
-    
-    // if (nextBlock && currentBlock != nextBlock) {
-        // console.log(currentBlock, nextBlock)
-        // nextBlock = blocks[(blocks.indexOf(currentBlock) + 1) % blocks.length]
-        // setTimeout(() => video.currentTime = nextBlock.start, currentBlock.end - t)
-        for (const el of document.querySelectorAll(".active")) {
-            el.classList.remove("active")
-        }
-        if (nextBlock?.el) {
-            nextBlock.el.classList.add('active')
-            if (transcriptBlocks.length) {
-                transcriptBlocks[nextBlock.source].el!.classList.add('active')
-            }
-        }
-        // if(nextBlock?.word && nextBlock?.el) {
-        //     render_phones(nextBlock)
-        // }
-        // currentBlock = nextBlock
-    // }
-    // highlight_phone(currentBlock, t)
-    
-    // window.requestAnimationFrame(highlightWord)
-}
-// window.requestAnimationFrame(highlight_word)
 
 interface Phone {
     duration: number
@@ -150,6 +118,23 @@ interface Block {
 
 let transcriptBlocks: Block[] = []
 let editorBlocks: Block[] = []
+
+function setStatus(status: string) {
+    if (statusEl === null) return
+    statusEl.textContent = status
+}
+
+function highlightWord(nextBlock: Block, t: number) {
+    for (const el of document.querySelectorAll(".active")) {
+        el.classList.remove("active")
+    }
+    if (nextBlock?.el) {
+        nextBlock.el.classList.add('active')
+        if (transcriptBlocks.length) {
+            transcriptBlocks[nextBlock.source].el!.classList.add('active')
+        }
+    }
+}
 
 function generateBlocks(ret: Result, duration: number): Block[] {
     const blocks = []
@@ -363,11 +348,21 @@ async function setup() {
 let gain = 1
 function setVolume(frac: number) {
     gain = frac === 0 ? 0 : 10**(72 * (frac - 1)/20)
+    console.log(setVolume, frac, gain)
     if (playing) gainNode.gain.value = gain
 }
 
-function updateParameters(parameters: ParametersMessage) {
-    setVolume(parameters.volume)
+function updateParameters(remoteControlled = false) {
+    if (!remoteControlled) {
+        socket.send(JSON.stringify({ type: "parameters", knobs }))
+    }
+    setVolume(knobs[0])
+    for (const [i, el] of document.querySelectorAll<HTMLDivElement>(".parameter-bar").entries()) {
+        el.style.height = `${knobs[knobs.length - 1 - i] * 100}%`
+    }
+    if (video) {
+        video.style.filter = `brightness(${(knobs[1] * 300) + 100}%) contrast(${knobs[3] * 200}%) sepia(${knobs[2] * 100}%)`
+    }
 }
 
 // TODO: Send information from whichever client is "driving" to keep others (roughly) in sync.
@@ -470,13 +465,16 @@ function resetEditor() {
 }
 
 function setupPage() {
+    const paramHTML = `
+<div class="parameter"><div class="parameter-bar"></div></div>
+`
+
     const playerHTML = `
 <video loop muted></video><br>
 <button id="fullscreen">Fullscreen</button>
 `
 
     const editorHTML = `
-<div id="status"></div>
 <div>
     <button id="reset-all">Reset</button>
     <button id="record">Record</button>
@@ -491,8 +489,16 @@ Examples:
 <button>numbers</button>
 <button>solfege</button>
 </div>
-<div id="transcript"></div>
-<div id="editor"></div>
+<div style="flex: 1; min-height: 0; display: flex;">
+    <div style="flex: 1; display: flex; flex-direction: column">
+        <div id="transcript"></div>
+        <div id="status"></div>
+        <div id="editor"></div>
+    </div>
+    <div id="parameters">
+        ${paramHTML.repeat(4)}
+    </div>
+</div>
 <div id="editor-controls">
     <button id="clear">Clear</button>
     <button id="reset">Reset</button>
@@ -526,9 +532,33 @@ Examples:
     statusEl = document.querySelector("#status") as HTMLDivElement
     transcriptEl = document.getElementById("transcript") as HTMLDivElement
     editorEl = document.getElementById("editor") as HTMLDivElement
-    statusEl.innerHTML = "Select, upload, or record a video with speech to begin." // "Loading..."
 
     if (role !== "player") {
+        setStatus("Select, upload, or record a video with speech to begin.")
+
+        for (const [i, el] of document.querySelectorAll<HTMLDivElement>(".parameter").entries()) {
+            const update = (e: MouseEvent) => {
+                const rect = el.getBoundingClientRect()
+                const frac = (rect.bottom - e.clientY) / rect.height
+                knobs[knobs.length - 1 - i] = Math.max(0, Math.min(frac, 1))
+                updateParameters()
+            }
+            el.onmousedown = e => {
+                console.log("click")
+                update(e)
+                const move = (e: MouseEvent) => {
+                    console.log("hey")
+                    if (e.buttons) update(e)
+                }
+                const up = () => {
+                    document.removeEventListener("mousemove", move)
+                    document.removeEventListener("mouseup", up)
+                }
+                document.addEventListener("mousemove", move)
+                document.addEventListener("mouseup", up)
+            }
+        }
+
         onClick("#reset-all", () => {
             loadVideo(null)
             editorBlocks = []
@@ -598,7 +628,7 @@ Examples:
             .then(stream => {
                 const mediaRecorder = new MediaRecorder(stream)
 
-                statusEl.textContent = "Ready to record."
+                setStatus("Ready to record.")
                 recordButton.onclick = () => {
                     if (mediaRecorder.state === "inactive") {
                         if (video) video.srcObject = stream
@@ -607,14 +637,14 @@ Examples:
                         console.log("recorder started")
                         recordButton.style.background = "red"
                         recordButton.style.color = "black"
-                        statusEl.textContent = "Recording..."
+                        setStatus("Recording...")
                     } else {
                         mediaRecorder.stop()
                         console.log(mediaRecorder.state)
                         console.log("recorder stopped")
                         recordButton.style.background = ""
                         recordButton.style.color = ""
-                        statusEl.textContent = "Stopped recording."
+                        setStatus("Stopped recording.")
                     }
                 }
 
@@ -681,12 +711,12 @@ async function loadVideo(url: string | null, remoteControlled=false) {
         transcriptBlocks = []
         renderTranscript()
     } else {
-        statusEl.textContent = `Fetching "${url}"...`
+        setStatus(`Fetching "${url}"...`)
         let [videoFile, alignment] = await Promise.all([
             fetch(`${url}.mp4`).then(r => r.blob()),
             fetch(`${url}.json`).then(r => r.json())
         ])
-        statusEl.textContent = "Decoding..."
+        setStatus("Decoding...")
         buffer = await audioContext.decodeAudioData(await videoFile.arrayBuffer())
         transcriptBlocks = generateBlocks(alignment, buffer.duration)
         renderTranscript()
@@ -695,7 +725,7 @@ async function loadVideo(url: string | null, remoteControlled=false) {
             resetEditor()
         }
     }
-    statusEl.textContent = "Ready."
+    setStatus("Ready.")
 }
 
 setup()
