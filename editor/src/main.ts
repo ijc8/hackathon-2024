@@ -476,6 +476,7 @@ function setupPage() {
 `
 
     const editorHTML = `
+<div id="status"></div>
 <div>
     <button id="reset-all">Reset</button>
     <button id="record">Record</button>
@@ -502,12 +503,24 @@ Examples:
     <button id="forget">Forget</button>
 </div>
 `
-
-    document.querySelector("#app")!.innerHTML = `
-<div id="status"></div>
-${role !== "editor" ? playerHTML : ""}
-${role !== "player" ? editorHTML : ""}
+    let html: string
+    if (role === "player") {
+        html = playerHTML
+    } else if (role === "editor") {
+        html = editorHTML
+    } else {
+        html = `
+<div class="book">
+    <div class="page left-page">${playerHTML}</div>
+    <div class="divider">
+        <div></div>
+    </div>
+    <div class="page right-page">${editorHTML}</div>
+</div>
 `
+    }
+
+    document.querySelector("#app")!.innerHTML = html
 
     video = document.querySelector<HTMLVideoElement>("video") as HTMLVideoElement
     statusEl = document.querySelector("#status") as HTMLDivElement
