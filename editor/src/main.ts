@@ -54,7 +54,6 @@ function setupSocket() {
         console.log("socket open")
     }
     socket.onmessage = e => {
-        // statusEl.innerText = e.data
         const data: Message = JSON.parse(e.data)
         console.log("socket message", data)
         if (data.type === "video") {
@@ -423,7 +422,7 @@ function pause(remoteControlled=false) {
     sourceNodes = []
     if (togglePlay) togglePlay.textContent = "Play"
     video?.pause()
-    updatePlayback(playing, true, currentBlock.id, remoteControlled)
+    updatePlayback(playing, true, currentBlock ? currentBlock.id : 0, remoteControlled)
 }
 
 function updatePlayback(playing_: boolean, _looping: boolean, id: number, remoteControlled=false) {
@@ -690,7 +689,7 @@ Examples:
 
 async function uploadVideo(blob: Blob) {
     // Get transcription & alignment from server.
-    statusEl.textContent = "Transcribing & aligning..."
+    setStatus("Transcribing & aligning...")
     const form = new FormData()
     form.append("video", blob)
     const url = "transcribe"
