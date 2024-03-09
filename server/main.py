@@ -76,12 +76,13 @@ async def transcribe(request):
                 assert r.status_code == 302
                 location = r.headers["location"]
                 status_url = f"http://localhost:8765{location}/status.json"
-                status = "STARTED"
-                print(status_url)
+                r = await client.get(status_url)
+                status = r.json()["status"]
                 while status in ["STARTED", "ENCODING", "TRANSCRIBING", "ALIGNING"]:
+                    await asyncio.sleep(0.2)
                     r = await client.get(status_url)
-                    print(r.json())
                     status = r.json()["status"]
+                    print(r.json())
                 assert status == "OK"
                 r = await client.get(f"http://localhost:8765{location}/align.json")
                 alignment = r.json()
