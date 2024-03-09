@@ -352,6 +352,7 @@ function setVolume(frac: number) {
 }
 
 function updateParameters(remoteControlled = false) {
+    console.log("updateParameters", knobs)
     if (!remoteControlled) {
         socket.send(JSON.stringify({ type: "parameters", knobs }))
     }
@@ -376,7 +377,7 @@ async function play(remoteControlled=false) {
     currentBlock = editorBlocks[editorBlocks.length - 1]
     let timeoutHandle = 0
     video?.play()
-    gainNode.gain.value = 1
+    gainNode.gain.value = gain
     if (togglePlay) togglePlay.textContent = "Pause"
     updatePlayback(playing, true, currentBlock?.id, remoteControlled)
     while (playing && editorBlocks.length > 0) {
@@ -483,10 +484,7 @@ function setupPage() {
 </div>
 <div id="examples">
 Examples:
-<button>sentence</button>
-<button>door</button>
-<button>numbers</button>
-<button>solfege</button>
+${["sentence", "door", "numbers", "solfege", "jfk"].map(s => `<button>${s}</button>`).join(" ")}
 </div>
 <div style="flex: 1; min-height: 0; display: flex;">
     <div style="flex: 1; display: flex; flex-direction: column">
@@ -543,10 +541,8 @@ Examples:
                 updateParameters()
             }
             el.onmousedown = e => {
-                console.log("click")
                 update(e)
                 const move = (e: MouseEvent) => {
-                    console.log("hey")
                     if (e.buttons) update(e)
                 }
                 const up = () => {
